@@ -259,6 +259,38 @@ def _compute_summary(window_mins: int = 60) -> Dict[str, Any]:
     last_sig_ts = signals[-1].get("ts") if signals else None
     last_ord_ts = orders[-1].get("ts") if orders else None
     last_err_ts = errors[-1].get("ts") if errors else None
+    # Realized PnL and hold durations (today)
+    pnl_today = 0.0
+    hold_avg_sec = 0.0
+    b_lt1 = b_1_5 = b_5_15 = b_gt15 = 0
+    try:
+        start = _start_of_day()
+        durs = []
+        for ev in reversed(orders):
+            ts = float(ev.get("ts", 0))
+            if ts < start:
+                break
+            if ev.get("kind") == "trade_close":
+                v = ev.get("pnl")
+                if v is not None:
+                    try: pnl_today += float(v)
+                    except Exception: pass
+                dur = ev.get("duration_sec")
+                if dur is not None:
+                    try:
+                        dv = float(dur)
+                        durs.append(dv)
+                        m = dv/60.0
+                        if m < 1: b_lt1 += 1
+                        elif m < 5: b_1_5 += 1
+                        elif m < 15: b_5_15 += 1
+                        else: b_gt15 += 1
+                    except Exception:
+                        pass
+        if durs:
+            hold_avg_sec = sum(durs)/len(durs)
+    except Exception:
+        pass
 
     return {
         "equity": last_equity,
@@ -269,6 +301,9 @@ def _compute_summary(window_mins: int = 60) -> Dict[str, Any]:
         "last_order_ts": last_ord_ts,
         "last_error_ts": last_err_ts,
         "window_mins": window_mins,
+        "pnl_today": pnl_today,
+        "hold_avg_sec": hold_avg_sec,
+        "hold_buckets": {"lt1": b_lt1, "m1_5": b_1_5, "m5_15": b_5_15, "+15": b_gt15},
     }
 
 
