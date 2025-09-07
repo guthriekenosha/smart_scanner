@@ -1,0 +1,8 @@
+<tbody id="orders">
+  {% for ev in orders %}
+    {% include "_row_order.html" %}
+  {% else %}
+    <tr><td class="p-2 text-gray-500" colspan="5">No rows</td></tr>
+  {% endfor %}
+</tbody>
+

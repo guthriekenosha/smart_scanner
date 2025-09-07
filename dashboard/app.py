@@ -6,7 +6,7 @@ import os
 import time
 from collections import deque
 from pathlib import Path
-from typing import Any, AsyncGenerator, Deque, Dict, List, Optional, Set
+from typing import Any, AsyncGenerator, Deque, Dict, List, Optional, Set, Tuple
 
 import orjson
 from fastapi import FastAPI, Request
@@ -117,6 +117,7 @@ def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
     ts = ev.get("ts")
     label = kind
     info = ""
+    info_full = ""
     status = "ok"
 
     try:
@@ -128,6 +129,7 @@ def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
             tid = (tp or {}).get("tpslId") or (tp or {}).get("algoId")
             status = "ok" if (code == "0" or tid) else "err"
             info = f"id {tid}" if tid else (tp.get("msg") or "")
+            info_full = orjson.dumps(tp).decode() if tp else ""
         elif kind == "order_api_sl":
             label = "SL"
             sl = ev.get("sl") or {}
@@ -135,12 +137,14 @@ def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
             sid = (sl or {}).get("tpslId") or (sl or {}).get("algoId")
             status = "ok" if (code == "0" or sid) else "err"
             info = f"id {sid}" if sid else (sl.get("msg") or "")
+            info_full = orjson.dumps(sl).decode() if sl else ""
         elif kind == "order_api":
             label = "Order"
             resp = ev.get("resp") or {}
             code = str((resp or {}).get("code", "0"))
             status = "ok" if code == "0" else "err"
             info = (resp.get("msg") or "placed") if code == "0" else resp.get("msg")
+            info_full = orjson.dumps(resp).decode()
         elif kind == "risk_trail_sl":
             label = "Trail SL"
             side = ev.get("side") or side
@@ -148,10 +152,15 @@ def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
             res = ev.get("res") or {}
             code = str((res or {}).get("code", "0"))
             status = "ok" if code == "0" else "err"
+            info_full = orjson.dumps(res).decode()
         else:
             # fallback: compact string of keys likely interesting
             msg = ev.get("msg") or ev.get("info") or ""
             info = str(msg)[:180]
+            try:
+                info_full = orjson.dumps(ev).decode()
+            except Exception:
+                info_full = str(ev)
     except Exception:
         pass
 
@@ -162,6 +171,7 @@ def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
         "side": side,
         "info": info,
         "status": status,
+        "info_full": info_full,
     }
 
 
@@ -181,6 +191,74 @@ def _render_row(request: Request, kind: str, ev: Dict[str, Any]) -> str:
     html = templates.get_template(template).render(**ctx, request=request)
     # Ensure no stray newlines break SSE payloads
     return html.replace("\n", " ")
+
+
+def _window(items: Deque[Dict[str, Any]], secs: int) -> List[Dict[str, Any]]:
+    if not items:
+        return []
+    cutoff = time.time() - secs
+    out: List[Dict[str, Any]] = []
+    for ev in reversed(items):  # newest first
+        try:
+            ts = float(ev.get("ts"))
+        except Exception:
+            ts = 0.0
+        if ts and ts >= cutoff:
+            out.append(ev)
+        else:
+            break
+    return list(reversed(out))
+
+
+def _compute_summary() -> Dict[str, Any]:
+    last_bal = None
+    for ev in reversed(orders):
+        if ev.get("kind") == "order_balance_snapshot":
+            last_bal = ev
+            break
+    last_equity = None
+    last_available = None
+    if last_bal:
+        try:
+            last_equity = float(last_bal.get("equityUsd")) if last_bal.get("equityUsd") is not None else None
+        except Exception:
+            last_equity = None
+        try:
+            last_available = float(last_bal.get("available")) if last_bal.get("available") is not None else None
+        except Exception:
+            last_available = None
+
+    # Exposure metric (if emitted by scanner)
+    last_exposure = None
+    for ev in reversed(orders):
+        if ev.get("kind") == "exposure":
+            try:
+                last_exposure = float(ev.get("total"))
+            except Exception:
+                last_exposure = None
+            break
+
+    # Error rate in last 60 minutes
+    orders_1h = [e for e in _window(orders, 3600) if str(e.get("kind")).startswith("order_")]
+    errors_1h = _window(errors, 3600)
+    err_rate = 0.0
+    denom = max(1, len(orders_1h) + len(errors_1h))
+    err_rate = (len(errors_1h) / denom) * 100.0
+
+    # Freshness
+    last_sig_ts = signals[-1].get("ts") if signals else None
+    last_ord_ts = orders[-1].get("ts") if orders else None
+    last_err_ts = errors[-1].get("ts") if errors else None
+
+    return {
+        "equity": last_equity,
+        "available": last_available,
+        "exposure": last_exposure,
+        "err_rate": err_rate,
+        "last_signal_ts": last_sig_ts,
+        "last_order_ts": last_ord_ts,
+        "last_error_ts": last_err_ts,
+    }
 
 
 async def _tailer_task() -> None:
@@ -264,6 +342,7 @@ async def index(request: Request):
             "signals": sigs,
             "orders": ords,
             "errors": errs,
+            "summary": _compute_summary(),
         },
     )
 
@@ -286,6 +365,59 @@ async def summary():
         "last_error_ts": _ts(errors[-1]) if errors else 0,
     }
     return JSONResponse(out)
+
+
+@app.get("/partials/summary", response_class=HTMLResponse)
+async def partial_summary(request: Request):
+    return templates.TemplateResponse("_summary.html", {"request": request, "summary": _compute_summary()})
+
+
+def _filter_signals(side: str = "all", tf: str = "all", limit: int = 50) -> List[Dict[str, Any]]:
+    rows = list(signals)[-200:]
+    out = []
+    side = side.lower()
+    tf = tf.lower()
+    for ev in reversed(rows):
+        s_ok = (side == "all" or str(ev.get("side")).lower() == side)
+        tf_ok = (tf == "all" or str(ev.get("timeframe")).lower() == tf)
+        if s_ok and tf_ok:
+            out.append(ev)
+        if len(out) >= limit:
+            break
+    return list(reversed(out))
+
+
+@app.get("/partials/signals", response_class=HTMLResponse)
+async def partial_signals(request: Request, side: str = "all", tf: str = "all", limit: int = 50):
+    rows = _filter_signals(side, tf, limit)
+    return templates.TemplateResponse("_signals_tbody.html", {"request": request, "signals": rows})
+
+
+def _filter_orders(kind: str = "all", limit: int = 50) -> List[Dict[str, Any]]:
+    rows = list(orders)[-300:]
+    out: List[Dict[str, Any]] = []
+    k = kind.lower()
+    for ev in reversed(rows):
+        sk = str(ev.get("kind") or "").lower()
+        take = (
+            k == "all"
+            or (k == "tp" and sk == "order_api_tp")
+            or (k == "sl" and sk == "order_api_sl")
+            or (k == "order" and sk == "order_api")
+            or (k == "trail" and sk == "risk_trail_sl")
+            or (k == "error" and sk.endswith("error"))
+        )
+        if take:
+            out.append(ev)
+        if len(out) >= limit:
+            break
+    return list(reversed(out))
+
+
+@app.get("/partials/orders", response_class=HTMLResponse)
+async def partial_orders(request: Request, kind: str = "all", limit: int = 50):
+    rows = _filter_orders(kind, limit)
+    return templates.TemplateResponse("_orders_tbody.html", {"request": request, "orders": rows})
 
 
 @app.get("/stream")

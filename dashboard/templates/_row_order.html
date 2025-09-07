@@ -1,4 +1,5 @@
-<tr class="border-b hover:bg-gray-50">
+<tr class="border-b hover:bg-gray-50 {% if view.status == 'err' %} bg-red-50/30 {% else %}{% if view.side in ['buy','long'] %} bg-blue-50/20 {% elif view.side in ['sell','short'] %} bg-yellow-50/20 {% endif %}{% endif %}">
+  <td class="p-2 text-xs text-gray-500 whitespace-nowrap">{{ ev.get('ts') | ago }}</td>
   <td class="p-2 whitespace-nowrap">
     <span class="px-2 py-0.5 rounded-full text-xs font-medium
       {% if view.status == 'ok' %} bg-green-100 text-green-700 {% else %} bg-red-100 text-red-700 {% endif %}">
@@ -14,5 +15,5 @@
       </span>
     {% else %} — {% endif %}
   </td>
-  <td class="p-2 text-xs truncate max-w-[18rem]">{{ view.info }}</td>
+  <td class="p-2 text-xs truncate max-w-[18rem]" title="{{ view.info_full }}">{{ view.info }}</td>
 </tr>

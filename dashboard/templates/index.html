@@ -1,15 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+<div id="summary" hx-get="/partials/summary" hx-trigger="load, every 5s" hx-swap="outerHTML">
+  {% include "_summary.html" %}
+  </div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
   <div class="bg-white rounded shadow p-4">
     <div class="flex items-center justify-between mb-2">
       <h2 class="font-medium">Recent Signals</h2>
-      <a href="#" class="text-sm text-blue-600" hx-get="/api/summary" hx-trigger="every 10s" hx-swap="none">Refresh</a>
+      <div class="space-x-2 text-sm">
+        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=all" hx-target="#signals" hx-swap="outerHTML">All</button>
+        <button class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded" hx-get="/partials/signals?side=buy&tf=all" hx-target="#signals" hx-swap="outerHTML">Buys</button>
+        <button class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded" hx-get="/partials/signals?side=sell&tf=all" hx-target="#signals" hx-swap="outerHTML">Sells</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=1m" hx-target="#signals" hx-swap="outerHTML">1m</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=5m" hx-target="#signals" hx-swap="outerHTML">5m</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=15m" hx-target="#signals" hx-swap="outerHTML">15m</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=1h" hx-target="#signals" hx-swap="outerHTML">1H</button>
+      </div>
     </div>
     <div class="overflow-auto max-h-96">
       <table class="min-w-full text-sm">
         <thead class="bg-gray-100 sticky top-0">
           <tr>
+            <th class="p-2">Time</th>
             <th class="p-2 text-left">Symbol</th>
             <th class="p-2">TF</th>
             <th class="p-2">Side</th>
@@ -36,6 +50,7 @@
       <table class="min-w-full text-sm">
         <thead class="bg-gray-100 sticky top-0">
           <tr>
+            <th class="p-2">Time</th>
             <th class="p-2 text-left">Kind</th>
             <th class="p-2">Symbol</th>
             <th class="p-2">Side</th>
@@ -74,4 +89,3 @@
   </div>
 </div>
 {% endblock %}
-

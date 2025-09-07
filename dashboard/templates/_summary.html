@@ -1,0 +1,29 @@
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div class="bg-white rounded shadow p-4">
+    <div class="text-xs text-gray-500">Balance</div>
+    <div class="mt-1 text-lg font-semibold">
+      {{ (summary.equity or 0) | round(2) }} USDT
+      <span class="text-sm text-gray-500">(avail {{ (summary.available or 0) | round(2) }})</span>
+    </div>
+    <div class="text-xs text-gray-500 mt-1">Last order {{ summary.last_order_ts | ago }}</div>
+  </div>
+  <div class="bg-white rounded shadow p-4">
+    <div class="text-xs text-gray-500">Exposure</div>
+    <div class="mt-1 text-lg font-semibold">
+      {% if summary.exposure is not none %}
+        {{ summary.exposure | round(2) }} USDT
+      {% else %}
+        —
+      {% endif %}
+    </div>
+    <div class="text-xs text-gray-500 mt-1">Last signal {{ summary.last_signal_ts | ago }}</div>
+  </div>
+  <div class="bg-white rounded shadow p-4">
+    <div class="text-xs text-gray-500">Error Rate (1h)</div>
+    <div class="mt-1 text-lg font-semibold">
+      {{ '%.1f'|format(summary.err_rate or 0) }}%
+    </div>
+    <div class="text-xs text-gray-500 mt-1">Last error {{ summary.last_error_ts | ago }}</div>
+  </div>
+</div>
+
