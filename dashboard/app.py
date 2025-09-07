@@ -323,6 +323,8 @@ async def _tailer_task() -> None:
             signals.append(ev)
         elif k.startswith("order") or k.startswith("risk_"):
             orders.append(ev)
+        elif k == "trade_close":
+            orders.append(ev)
         elif k.endswith("error"):
             errors.append(ev)
         elif k == "position":
@@ -388,6 +390,9 @@ async def _tailer_task() -> None:
                     elif k.endswith("error"):
                         html = _render_row(req, "error", ev)
                         await hub.broadcast("errors", html)
+                    elif k == "trade_close":
+                        html = _render_row(req, "order", ev)
+                        await hub.broadcast("orders", html)
                     if k == "position":
                         try:
                             inst = ev.get("instId") or ev.get("symbol")
@@ -523,9 +528,10 @@ def _filter_orders(kind: str = "all", limit: int = 50, sort: str = "ts", directi
             k == "all"
             or (k == "tp" and sk == "order_api_tp")
             or (k == "sl" and sk == "order_api_sl")
-            or (k == "order" and sk == "order_api")
+            or (k == "order" and (sk == "order_api" or sk == "trade_close"))
             or (k == "trail" and sk == "risk_trail_sl")
             or (k == "error" and sk.endswith("error"))
+            or (sk == "trade_close")
         )
         if take:
             out.append(ev)

@@ -380,6 +380,8 @@ class Config:
 
     # Ensure venue leverage matches plan on each entry (per instrument)
     set_leverage_on_entry: int = int(os.getenv("SET_LEVERAGE_ON_ENTRY", "0"))  # 0/1
+    # Reserve at least venue min size for TP2 when feasible (two-TP modes only)
+    reserve_min_for_tp2: int = int(os.getenv("RESERVE_MIN_FOR_TP2", "0"))  # 0/1
 
 
 CONFIG = Config()

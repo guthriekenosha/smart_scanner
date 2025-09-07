@@ -39,7 +39,12 @@ def _prob_from_components(score: float, tags: List[str], n_comp: int, feats: Dic
     tag_bonus = 0.03 * sum(
         1
         for t in tags
-        if t in ("breakout", "momentum", "trend_up", "rsi_confirm", "st_flip")
+        if t in (
+            # bullish tags
+            "breakout", "momentum", "trend_up", "rsi_confirm", "st_flip",
+            # bearish symmetric tags
+            "breakdown", "momentum_down", "trend_down", "st_flip_down",
+        )
     )
     # If a calibration model is available, prefer it (uses features including score)
     feats_with_score = dict(feats)
@@ -98,6 +103,7 @@ def evaluate_symbol_timeframe(
     components = []
     strat_scores: Dict[str, float] = {}
     side_votes = {"buy": 0, "sell": 0}
+    side_score = {"buy": 0.0, "sell": 0.0}
     tags: List[str] = []
     level = None
 
@@ -106,6 +112,10 @@ def evaluate_symbol_timeframe(
             components.append(name)
             strat_scores[name] = score
             side_votes[side] = side_votes.get(side, 0) + 1
+            try:
+                side_score[side] = side_score.get(side, 0.0) + float(score)
+            except Exception:
+                pass
             tags.extend(_tags)
             if _level is not None:
                 level = _level
@@ -131,7 +141,16 @@ def evaluate_symbol_timeframe(
     if score < CONFIG.min_score:
         return []
 
-    side = "buy" if side_votes["buy"] >= side_votes.get("sell", 0) else "sell"
+    # Choose side by aggregate score first; tie-breaker by votes; final tie -> buy
+    try:
+        if side_score["buy"] != side_score["sell"]:
+            side = "buy" if side_score["buy"] > side_score["sell"] else "sell"
+        elif side_votes["buy"] != side_votes["sell"]:
+            side = "buy" if side_votes["buy"] > side_votes["sell"] else "sell"
+        else:
+            side = "buy"
+    except Exception:
+        side = "buy" if side_votes["buy"] >= side_votes.get("sell", 0) else "sell"
     prob = _prob_from_components(score, tags, n_comp=len(components), feats=feats)
     ev = (prob * 1.0) - ((1 - prob) * 0.5)  # simplistic EV estimate; tune later
 

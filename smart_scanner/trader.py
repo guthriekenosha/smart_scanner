@@ -1178,13 +1178,20 @@ class AutoTrader:
                     except Exception:
                         pass
 
-                    def _adapt_tp_qty(q: float) -> float:
+                    def _adapt_tp_qty(q: float, raw: float) -> float:
                         adj = max(0.0, q)
                         if step and step > 0:
                             import math as _math
                             adj = _math.floor(adj / step) * step
                         if min_sz and adj < min_sz:
-                            adj = 0.0
+                            # If the unrounded/raw size is at least the venue min, send the min; else skip
+                            try:
+                                if float(raw) >= float(min_sz):
+                                    adj = float(min_sz)
+                                else:
+                                    adj = 0.0
+                            except Exception:
+                                adj = 0.0
                         return float(adj)
                     # Adjust remaining by existing TP coverage
                     try:
@@ -1195,7 +1202,33 @@ class AutoTrader:
 
                     if tp1 is not None and CONFIG.scale_out_pct1 > 0 and remaining > 0:
                         raw_sz1 = max(0.0, min(remaining, remaining * CONFIG.scale_out_pct1))
-                        sz1 = _adapt_tp_qty(raw_sz1)
+                        # Reserve min size for TP2 when feasible
+                        try:
+                            has_tp2 = (tp2 is not None)
+                        except Exception:
+                            has_tp2 = False
+                        if (
+                            has_tp2 and CONFIG.reserve_min_for_tp2 and min_sz and float(min_sz) > 0.0 and
+                            remaining >= float(min_sz) * 2.0 and (remaining - raw_sz1) < float(min_sz)
+                        ):
+                            want = max(0.0, remaining - float(min_sz))
+                            if want < raw_sz1:
+                                raw_sz1 = want
+                        sz1 = _adapt_tp_qty(raw_sz1, raw_sz1)
+                        if (
+                            has_tp2 and CONFIG.reserve_min_for_tp2 and min_sz and float(min_sz) > 0.0 and
+                            remaining >= float(min_sz) * 2.0 and (remaining - sz1) < float(min_sz)
+                        ):
+                            # shave TP1 after rounding to ensure remainder >= min size
+                            try:
+                                import math as _math
+                                target = max(0.0, remaining - float(min_sz))
+                                if step and step > 0:
+                                    target = _math.floor(target / step) * step
+                                if target < sz1:
+                                    sz1 = target
+                            except Exception:
+                                pass
                         if sz1 > 0:
                             tpsl_tp1 = await client.place_tpsl(
                                 s.symbol,
@@ -1252,7 +1285,12 @@ class AutoTrader:
                     if tp2 is not None and CONFIG.scale_out_pct2 > 0 and placed_tp < remaining:
                         rem = max(0.0, remaining - placed_tp)
                         raw_sz2 = max(0.0, min(rem, remaining * CONFIG.scale_out_pct2))
-                        sz2 = _adapt_tp_qty(raw_sz2)
+                        sz2 = _adapt_tp_qty(raw_sz2, raw_sz2)
+                        if sz2 <= 0 and min_sz and raw_sz2 < float(min_sz):
+                            try:
+                                emit_metric("tpsl_skip_tp2_lt_min", {"symbol": s.symbol, "remaining": rem, "min": float(min_sz)})
+                            except Exception:
+                                pass
                         if sz2 > 0:
                             tpsl_tp2 = await client.place_tpsl(
                                 s.symbol,
