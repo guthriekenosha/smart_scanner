@@ -6,6 +6,31 @@
   </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+  <div class="bg-white rounded shadow p-4 lg:col-span-2">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="font-medium">Positions</h2>
+      <div class="space-x-2 text-xs">
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="applyPosSort('symbol')">Symbol</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="applyPosSort('size')">Size</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="applyPosSort('pnl')">PnL</button>
+      </div>
+    </div>
+    <div id="positions" hx-get="/partials/positions" hx-trigger="load, every 5s" hx-swap="outerHTML"></div>
+  </div>
+
+  <div class="bg-white rounded shadow p-4 lg:col-span-1">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="font-medium">PnL (last <span id="pnl_window_label">240</span>m)</h2>
+      <select class="border rounded px-1 py-0.5 text-xs" hx-get="/partials/pnl" hx-target="#pnl" hx-swap="outerHTML" onchange="document.getElementById('pnl_window_label').innerText=this.value">
+        <option value="60">60</option>
+        <option value="120">120</option>
+        <option value="240" selected>240</option>
+        <option value="480">480</option>
+      </select>
+    </div>
+    <div id="pnl" hx-get="/partials/pnl?mins=240" hx-trigger="load, every 10s" hx-swap="outerHTML"></div>
+  </div>
+
   <div class="bg-white rounded shadow p-4">
     <div class="flex items-center justify-between mb-2">
       <h2 class="font-medium">Recent Signals</h2>
@@ -23,13 +48,13 @@
       <table class="min-w-full text-sm">
         <thead class="bg-gray-100 sticky top-0">
           <tr>
-            <th class="p-2">Time</th>
-            <th class="p-2 text-left">Symbol</th>
-            <th class="p-2">TF</th>
-            <th class="p-2">Side</th>
-            <th class="p-2">Score</th>
-            <th class="p-2">Prob%</th>
-            <th class="p-2">Price</th>
+            <th class="p-2 cursor-pointer" onclick="applySignalsSort('ts')">Time</th>
+            <th class="p-2 text-left cursor-pointer" onclick="applySignalsSort('symbol')">Symbol</th>
+            <th class="p-2 cursor-pointer" onclick="applySignalsSort('tf')">TF</th>
+            <th class="p-2 cursor-pointer" onclick="applySignalsSort('side')">Side</th>
+            <th class="p-2 cursor-pointer" onclick="applySignalsSort('score')">Score</th>
+            <th class="p-2 cursor-pointer" onclick="applySignalsSort('prob')">Prob%</th>
+            <th class="p-2 cursor-pointer" onclick="applySignalsSort('price')">Price</th>
           </tr>
         </thead>
         <tbody id="signals"
@@ -58,10 +83,10 @@
       <table class="min-w-full text-sm">
         <thead class="bg-gray-100 sticky top-0">
           <tr>
-            <th class="p-2">Time</th>
-            <th class="p-2 text-left">Kind</th>
-            <th class="p-2">Symbol</th>
-            <th class="p-2">Side</th>
+            <th class="p-2 cursor-pointer" onclick="applyOrdersSort('ts')">Time</th>
+            <th class="p-2 text-left cursor-pointer" onclick="applyOrdersSort('kind')">Kind</th>
+            <th class="p-2 cursor-pointer" onclick="applyOrdersSort('symbol')">Symbol</th>
+            <th class="p-2 cursor-pointer" onclick="applyOrdersSort('side')">Side</th>
             <th class="p-2">Info</th>
           </tr>
         </thead>
@@ -96,24 +121,5 @@
     </div>
   </div>
 
-  <div class="bg-white rounded shadow p-4 lg:col-span-1">
-    <div class="flex items-center justify-between mb-2">
-      <h2 class="font-medium">PnL (last <span id="pnl_window_label">240</span>m)</h2>
-      <select class="border rounded px-1 py-0.5 text-xs" hx-get="/partials/pnl" hx-target="#pnl" hx-swap="outerHTML" onchange="document.getElementById('pnl_window_label').innerText=this.value">
-        <option value="60">60</option>
-        <option value="120">120</option>
-        <option value="240" selected>240</option>
-        <option value="480">480</option>
-      </select>
-    </div>
-    <div id="pnl" hx-get="/partials/pnl?mins=240" hx-trigger="load, every 10s" hx-swap="outerHTML"></div>
-  </div>
-
-  <div class="bg-white rounded shadow p-4 lg:col-span-2">
-    <div class="flex items-center justify-between mb-2">
-      <h2 class="font-medium">Positions</h2>
-    </div>
-    <div id="positions" hx-get="/partials/positions" hx-trigger="load, every 5s" hx-swap="outerHTML"></div>
-  </div>
 </div>
 {% endblock %}

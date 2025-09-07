@@ -416,7 +416,7 @@ async def partial_summary(request: Request, mins: int = 60):
     return templates.TemplateResponse("_summary.html", {"request": request, "summary": _compute_summary(mins)})
 
 
-def _filter_signals(side: str = "all", tf: str = "all", limit: int = 50) -> List[Dict[str, Any]]:
+def _filter_signals(side: str = "all", tf: str = "all", limit: int = 50, sort: str = "ts", direction: str = "desc") -> List[Dict[str, Any]]:
     rows = list(signals)[-200:]
     out = []
     side = side.lower()
@@ -428,16 +428,34 @@ def _filter_signals(side: str = "all", tf: str = "all", limit: int = 50) -> List
             out.append(ev)
         if len(out) >= limit:
             break
-    return list(reversed(out))
+    key = sort.lower()
+    reverse = (str(direction or "desc").lower() != "asc")
+    def _k(e: Dict[str, Any]):
+        try:
+            if key == "symbol": return str(e.get("symbol") or "")
+            if key == "tf" or key == "timeframe": return str(e.get("timeframe") or "")
+            if key == "side": return str(e.get("side") or "")
+            if key == "score": return float(e.get("score") or 0.0)
+            if key == "prob": return float(e.get("prob") or 0.0)
+            if key == "price": return float(e.get("price") or 0.0)
+            # default ts
+            return float(e.get("ts") or 0.0)
+        except Exception:
+            return 0
+    try:
+        out.sort(key=_k, reverse=reverse)
+    except Exception:
+        pass
+    return out
 
 
 @app.get("/partials/signals", response_class=HTMLResponse)
-async def partial_signals(request: Request, side: str = "all", tf: str = "all", limit: int = 50):
-    rows = _filter_signals(side, tf, limit)
+async def partial_signals(request: Request, side: str = "all", tf: str = "all", limit: int = 50, sort: str = "ts", dir: str = "desc"):
+    rows = _filter_signals(side, tf, limit, sort, dir)
     return templates.TemplateResponse("_signals_tbody.html", {"request": request, "signals": rows})
 
 
-def _filter_orders(kind: str = "all", limit: int = 50) -> List[Dict[str, Any]]:
+def _filter_orders(kind: str = "all", limit: int = 50, sort: str = "ts", direction: str = "desc") -> List[Dict[str, Any]]:
     rows = list(orders)[-300:]
     out: List[Dict[str, Any]] = []
     k = kind.lower()
@@ -455,12 +473,26 @@ def _filter_orders(kind: str = "all", limit: int = 50) -> List[Dict[str, Any]]:
             out.append(ev)
         if len(out) >= limit:
             break
-    return list(reversed(out))
+    key = sort.lower()
+    reverse = (str(direction or "desc").lower() != "asc")
+    def _k(e: Dict[str, Any]):
+        try:
+            if key == "symbol": return str(e.get("symbol") or e.get("instId") or "")
+            if key == "side": return str(e.get("side") or "")
+            if key == "kind": return str(e.get("kind") or "")
+            return float(e.get("ts") or 0.0)
+        except Exception:
+            return 0
+    try:
+        out.sort(key=_k, reverse=reverse)
+    except Exception:
+        pass
+    return out
 
 
 @app.get("/partials/orders", response_class=HTMLResponse)
-async def partial_orders(request: Request, kind: str = "all", limit: int = 50):
-    rows = _filter_orders(kind, limit)
+async def partial_orders(request: Request, kind: str = "all", limit: int = 50, sort: str = "ts", dir: str = "desc"):
+    rows = _filter_orders(kind, limit, sort, dir)
     return templates.TemplateResponse("_orders_tbody.html", {"request": request, "orders": rows})
 
 
@@ -498,8 +530,25 @@ def _positions_list() -> List[Dict[str, Any]]:
 
 
 @app.get("/partials/positions", response_class=HTMLResponse)
-async def partial_positions(request: Request):
+async def partial_positions(request: Request, sort: str = "symbol", dir: str = "asc"):
     rows = _positions_list()
+    key = sort.lower()
+    reverse = (str(dir or "asc").lower() != "asc")
+    def _k(e: Dict[str, Any]):
+        try:
+            if key == "symbol": return str(e.get("symbol") or "")
+            if key == "side": return str(e.get("side") or "")
+            if key == "size": return float(e.get("size") or 0.0)
+            if key == "entry": return float(e.get("entry") or 0.0)
+            if key == "mark": return float(e.get("mark") or 0.0)
+            if key == "pnl": return float(e.get("pnl_u") or 0.0)
+            return float(e.get("ts") or 0.0)
+        except Exception:
+            return 0
+    try:
+        rows.sort(key=_k, reverse=reverse)
+    except Exception:
+        pass
     return templates.TemplateResponse("_positions.html", {"request": request, "positions": rows})
 
 

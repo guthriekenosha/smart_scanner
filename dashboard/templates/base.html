@@ -42,13 +42,45 @@
       }
       function setSigFilter(side, tf){ if(side!==null) localStorage.setItem('sig_side', side); if(tf!==null) localStorage.setItem('sig_tf', tf); }
       function setOrderFilter(kind){ localStorage.setItem('ord_kind', kind); }
+      function nextDir(prefix, col){
+        const sKey = prefix + '_sort';
+        const dKey = prefix + '_dir';
+        const prevS = localStorage.getItem(sKey);
+        const prevD = localStorage.getItem(dKey) || 'desc';
+        const dir = (prevS === col && prevD === 'desc') ? 'asc' : 'desc';
+        localStorage.setItem(sKey, col);
+        localStorage.setItem(dKey, dir);
+        return dir;
+      }
+      function applySignalsSort(col){
+        const side = localStorage.getItem('sig_side') || 'all';
+        const tf = localStorage.getItem('sig_tf') || 'all';
+        const dir = nextDir('sig', col);
+        window.htmx.ajax('GET', `/partials/signals?side=${side}&tf=${tf}&sort=${col}&dir=${dir}`, {target:'#signals', swap:'outerHTML'});
+      }
+      function applyOrdersSort(col){
+        const kind = localStorage.getItem('ord_kind') || 'all';
+        const dir = nextDir('ord', col);
+        window.htmx.ajax('GET', `/partials/orders?kind=${kind}&sort=${col}&dir=${dir}`, {target:'#orders', swap:'outerHTML'});
+      }
+      function applyPosSort(col){
+        const dir = nextDir('pos', col);
+        window.htmx.ajax('GET', `/partials/positions?sort=${col}&dir=${dir}`, {target:'#positions', swap:'outerHTML'});
+      }
       function applySavedFilters(){
         if (window.htmx){
           const side = localStorage.getItem('sig_side') || 'all';
           const tf = localStorage.getItem('sig_tf') || 'all';
-          window.htmx.ajax('GET', `/partials/signals?side=${side}&tf=${tf}`, {target:'#signals', swap:'outerHTML'});
+          const sSort = localStorage.getItem('sig_sort') || 'ts';
+          const sDir = localStorage.getItem('sig_dir') || 'desc';
+          window.htmx.ajax('GET', `/partials/signals?side=${side}&tf=${tf}&sort=${sSort}&dir=${sDir}`, {target:'#signals', swap:'outerHTML'});
           const kind = localStorage.getItem('ord_kind') || 'all';
-          window.htmx.ajax('GET', `/partials/orders?kind=${kind}`, {target:'#orders', swap:'outerHTML'});
+          const oSort = localStorage.getItem('ord_sort') || 'ts';
+          const oDir = localStorage.getItem('ord_dir') || 'desc';
+          window.htmx.ajax('GET', `/partials/orders?kind=${kind}&sort=${oSort}&dir=${oDir}`, {target:'#orders', swap:'outerHTML'});
+          const pSort = localStorage.getItem('pos_sort') || 'symbol';
+          const pDir = localStorage.getItem('pos_dir') || 'asc';
+          window.htmx.ajax('GET', `/partials/positions?sort=${pSort}&dir=${pDir}`, {target:'#positions', swap:'outerHTML'});
         }
       }
       document.addEventListener('DOMContentLoaded', function(){ setTimeout(applySavedFilters, 50); });
