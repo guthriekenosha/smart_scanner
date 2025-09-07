@@ -1,4 +1,5 @@
 <tr class="border-b hover:bg-gray-50 cursor-pointer" hx-get="/partials/details?bucket=errors&ts={{ ev.get('ts') }}" hx-target="#drawer" hx-swap="innerHTML" hx-trigger="click">
+  <td class="p-2 text-xs text-gray-500">{{ ev.get('ts') | ago }}</td>
   <td class="p-2">{{ ev.get('stage','') }}</td>
   <td class="p-2 text-center">{{ ev.get('symbol','') }}</td>
   <td class="p-2 text-xs">{{ ev.get('err') or ev.get('msg') or ev.get('info') or '' }}</td>

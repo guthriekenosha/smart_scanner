@@ -1,0 +1,8 @@
+<tbody id="errors">
+  {% for ev in errors %}
+    {% include "_row_error.html" %}
+  {% else %}
+    <tr><td colspan="4" class="p-2 text-gray-500">No errors</td></tr>
+  {% endfor %}
+</tbody>
+

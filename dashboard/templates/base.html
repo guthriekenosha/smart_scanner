@@ -63,6 +63,10 @@
         const dir = nextDir('ord', col);
         window.htmx.ajax('GET', `/partials/orders?kind=${kind}&sort=${col}&dir=${dir}`, {target:'#orders', swap:'outerHTML'});
       }
+      function applyErrorsSort(col){
+        const eSort = nextDir('err', col);
+        window.htmx.ajax('GET', `/partials/errors?sort=${col}&dir=${eSort}`, {target:'#errors', swap:'outerHTML'});
+      }
       function applyPosSort(col){
         const dir = nextDir('pos', col);
         window.htmx.ajax('GET', `/partials/positions?sort=${col}&dir=${dir}`, {target:'#positions', swap:'outerHTML'});
@@ -83,7 +87,30 @@
           window.htmx.ajax('GET', `/partials/positions?sort=${pSort}&dir=${pDir}`, {target:'#positions', swap:'outerHTML'});
         }
       }
-      document.addEventListener('DOMContentLoaded', function(){ setTimeout(applySavedFilters, 50); });
+      function autoResort(){
+        const ss = localStorage.getItem('sig_sort') || 'ts';
+        if (ss !== 'ts') applySignalsSort(ss);
+        const os = localStorage.getItem('ord_sort') || 'ts';
+        if (os !== 'ts') applyOrdersSort(os);
+        const es = localStorage.getItem('err_sort') || 'ts';
+        if (es !== 'ts') applyErrorsSort(es);
+      }
+      function refreshCounts(){
+        fetch('/api/summary').then(r=>r.json()).then(j=>{
+          const sc = document.getElementById('sig_count'); if (sc) sc.innerText = `(${j.signals})`;
+          const oc = document.getElementById('ord_count'); if (oc) oc.innerText = `(${j.orders})`;
+          const ec = document.getElementById('err_count'); if (ec) ec.innerText = `(${j.errors})`;
+          const dot = document.getElementById('sig_dot');
+          if (dot){
+            const now = Date.now()/1000;
+            const age = (j.last_signal_ts ? (now - j.last_signal_ts) : 1e9);
+            const fresh = age < 10; // green if last signal within 10s
+            dot.className = `inline-block align-middle w-2 h-2 rounded-full ${fresh ? 'bg-green-500' : 'bg-gray-400'} ml-1`;
+            dot.title = j.last_signal_ts ? `${Math.max(0, Math.floor(age))}s ago` : 'no recent signal';
+          }
+        }).catch(()=>{});
+      }
+      document.addEventListener('DOMContentLoaded', function(){ setTimeout(applySavedFilters, 60); setInterval(autoResort, 5000); setInterval(refreshCounts, 5000); });
     </script>
   </head>
   <body class="bg-gray-50 text-gray-900">

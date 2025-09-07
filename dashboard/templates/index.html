@@ -33,7 +33,7 @@
 
   <div class="bg-white rounded shadow p-4">
     <div class="flex items-center justify-between mb-2">
-      <h2 class="font-medium">Recent Signals</h2>
+      <h2 class="font-medium">Recent Signals <span id="sig_count" class="ml-2 text-xs text-gray-500"></span> <span id="sig_dot" class="inline-block align-middle w-2 h-2 rounded-full bg-gray-400 ml-1" title="last update"></span></h2>
       <div class="space-x-2 text-sm">
         <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setSigFilter('all','all')" hx-get="/partials/signals?side=all&tf=all" hx-target="#signals" hx-swap="outerHTML">All</button>
         <button class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded" onclick="setSigFilter('buy',null)" hx-get="/partials/signals?side=buy&tf=all" hx-target="#signals" hx-swap="outerHTML">Buys</button>
@@ -69,7 +69,7 @@
 
   <div class="bg-white rounded shadow p-4">
     <div class="flex items-center justify-between mb-2">
-      <h2 class="font-medium">Orders & TP/SL</h2>
+      <h2 class="font-medium">Orders & TP/SL <span id="ord_count" class="ml-2 text-xs text-gray-500"></span></h2>
       <div class="space-x-2 text-sm">
         <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setOrderFilter('all')" hx-get="/partials/orders?kind=all" hx-target="#orders" hx-swap="outerHTML">All</button>
         <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setOrderFilter('order')" hx-get="/partials/orders?kind=order" hx-target="#orders" hx-swap="outerHTML">Orders</button>
@@ -101,14 +101,15 @@
 
   <div class="bg-white rounded shadow p-4">
     <div class="flex items-center justify-between mb-2">
-      <h2 class="font-medium">Errors</h2>
+      <h2 class="font-medium">Errors <span id="err_count" class="ml-2 text-xs text-gray-500"></span></h2>
     </div>
     <div class="overflow-auto max-h-96">
       <table class="min-w-full text-sm">
         <thead class="bg-gray-100 sticky top-0">
           <tr>
-            <th class="p-2 text-left">Stage</th>
-            <th class="p-2">Symbol</th>
+            <th class="p-2 cursor-pointer" onclick="applyErrorsSort('ts')">Time</th>
+            <th class="p-2 text-left cursor-pointer" onclick="applyErrorsSort('stage')">Stage</th>
+            <th class="p-2 cursor-pointer" onclick="applyErrorsSort('symbol')">Symbol</th>
             <th class="p-2">Message</th>
           </tr>
         </thead>

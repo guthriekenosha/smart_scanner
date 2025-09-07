@@ -630,6 +630,31 @@ async def partial_details(request: Request, bucket: str, ts: float):
     return templates.TemplateResponse("_details.html", {"request": request, "title": title, "body": body})
 
 
+def _filter_errors(limit: int = 100, sort: str = "ts", direction: str = "desc") -> List[Dict[str, Any]]:
+    rows = list(errors)[-400:]
+    out = list(reversed(rows))  # newest first
+    key = sort.lower()
+    reverse = (str(direction or "desc").lower() != "asc")
+    def _k(e: Dict[str, Any]):
+        try:
+            if key == "stage": return str(e.get("stage") or "")
+            if key == "symbol": return str(e.get("symbol") or "")
+            return float(e.get("ts") or 0.0)
+        except Exception:
+            return 0
+    try:
+        out.sort(key=_k, reverse=reverse)
+    except Exception:
+        pass
+    return out[:limit]
+
+
+@app.get("/partials/errors", response_class=HTMLResponse)
+async def partial_errors(request: Request, limit: int = 100, sort: str = "ts", dir: str = "desc"):
+    rows = _filter_errors(limit, sort, dir)
+    return templates.TemplateResponse("_errors_tbody.html", {"request": request, "errors": rows})
+
+
 if __name__ == "__main__":
     import uvicorn
 
