@@ -117,7 +117,7 @@ def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
     symbol = ev.get("symbol") or ev.get("instId") or "?"
     side = ev.get("side") or ""
     ts = ev.get("ts")
-    label = kind
+    label = "Order"
     info = ""
     info_full = ""
     status = "ok"
@@ -126,50 +126,54 @@ def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
         if kind == "order_api_tp":
             which = ev.get("which")
             label = f"TP{which}" if which else "TP"
-            tp = ev.get("tp") or {}
-            code = str((tp or {}).get("code", "0"))
-            tid = (tp or {}).get("tpslId") or (tp or {}).get("algoId")
+            obj = ev.get("tp") or {}
+            code = str(obj.get("code", "0"))
+            tid = obj.get("tpslId") or obj.get("algoId")
             status = "ok" if (code == "0" or tid) else "err"
-            info = f"id {tid}" if tid else (tp.get("msg") or "")
-            info_full = orjson.dumps(tp).decode() if tp else ""
-    elif kind == "order_api_sl":
-        label = "SL"
-            sl = ev.get("sl") or {}
-            code = str((sl or {}).get("code", "0"))
-            sid = (sl or {}).get("tpslId") or (sl or {}).get("algoId")
+            info = f"id {tid}" if tid else (obj.get("msg") or "")
+            info_full = orjson.dumps(obj).decode()
+        elif kind == "order_api_sl":
+            label = "SL"
+            obj = ev.get("sl") or {}
+            code = str(obj.get("code", "0"))
+            sid = obj.get("tpslId") or obj.get("algoId")
             status = "ok" if (code == "0" or sid) else "err"
-            info = f"id {sid}" if sid else (sl.get("msg") or "")
-            info_full = orjson.dumps(sl).decode() if sl else ""
+            info = f"id {sid}" if sid else (obj.get("msg") or "")
+            info_full = orjson.dumps(obj).decode()
         elif kind == "order_api":
             label = "Order"
-            resp = ev.get("resp") or {}
-            code = str((resp or {}).get("code", "0"))
+            obj = ev.get("resp") or {}
+            code = str(obj.get("code", "0"))
             status = "ok" if code == "0" else "err"
-            info = (resp.get("msg") or "placed") if code == "0" else resp.get("msg")
-            info_full = orjson.dumps(resp).decode()
+            info = (obj.get("msg") or "placed") if code == "0" else obj.get("msg")
+            info_full = orjson.dumps(obj).decode()
         elif kind == "risk_trail_sl":
             label = "Trail SL"
             side = ev.get("side") or side
-            info = f"new {ev.get('new_sl')}"
+            new_sl = ev.get("new_sl")
+            info = f"new {new_sl}" if new_sl is not None else "trail"
             res = ev.get("res") or {}
-            code = str((res or {}).get("code", "0"))
+            code = str(res.get("code", "0"))
             status = "ok" if code == "0" else "err"
             info_full = orjson.dumps(res).decode()
-    elif kind == "trade_close":
-        label = "Close"
-        reason = ev.get("reason") or "close"
-        pnl = ev.get("pnl")
-        dur = ev.get("duration_sec")
-        info = (f"{reason}" + (f", pnl {pnl}" if pnl is not None else "") + (f", dur {int(dur//60)}m{int(dur%60)}s" if dur is not None else "")).strip(', ')
-        status = "ok"
-    else:
-        # fallback: compact string of keys likely interesting
-        msg = ev.get("msg") or ev.get("info") or ""
-        info = str(msg)[:180]
-            try:
-                info_full = orjson.dumps(ev).decode()
-            except Exception:
-                info_full = str(ev)
+        elif kind == "trade_close":
+            label = "Close"
+            reason = ev.get("reason") or "close"
+            pnl = ev.get("pnl")
+            dur = ev.get("duration_sec")
+            parts = [reason]
+            if pnl is not None:
+                parts.append(f"pnl {pnl}")
+            if dur is not None:
+                m, s = int(dur // 60), int(dur % 60)
+                parts.append(f"dur {m}m{s}s")
+            info = ", ".join(parts)
+            status = "ok"
+        else:
+            # fallback: compact string
+            msg = ev.get("msg") or ev.get("info") or ""
+            info = str(msg)[:180]
+            info_full = orjson.dumps(ev).decode()
     except Exception:
         pass
 
