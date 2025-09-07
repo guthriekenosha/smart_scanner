@@ -91,6 +91,11 @@
           window.htmx.ajax('GET', `/partials/positions?sort=${pSort}&dir=${pDir}`, {target:'#positions', swap:'outerHTML'});
         }
       }
+      function resetFilters(){
+        try{ localStorage.clear(); }catch(_){}
+        applySavedFilters();
+        try{ refreshCounts(); }catch(_){}
+      }
       function autoResort(){
         const ss = localStorage.getItem('sig_sort') || 'ts';
         if (ss !== 'ts') applySignalsSort(ss);
@@ -130,7 +135,10 @@
     <div class="max-w-7xl mx-auto p-6">
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-2xl font-semibold">Smart Scanner Dashboard</h1>
-        <button onclick="toggleTheme()" class="px-2 py-1 text-sm rounded bg-gray-100">Toggle Theme</button>
+        <div class="space-x-2">
+          <button onclick="resetFilters()" class="px-2 py-1 text-sm rounded bg-gray-100">Reset Filters</button>
+          <button onclick="toggleTheme()" class="px-2 py-1 text-sm rounded bg-gray-100">Toggle Theme</button>
+        </div>
       </div>
       {% block content %}{% endblock %}
       <footer class="mt-8 text-sm text-gray-500">Live updates via SSE • FastAPI + HTMX</footer>
