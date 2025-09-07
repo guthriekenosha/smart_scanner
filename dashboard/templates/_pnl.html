@@ -1,0 +1,34 @@
+{% set w = 500 %}
+{% set h = 120 %}
+{% if series|length == 0 %}
+  <div class="text-gray-500 text-sm">No realized PnL in window.</div>
+{% else %}
+  {% set xs = series | map(attribute=0) | list %}
+  {% set ys = series | map(attribute=1) | list %}
+  {% set xmin = xs[0] %}
+  {% set xmax = xs[-1] %}
+  {% set ymin = (ys|min) %}
+  {% set ymax = (ys|max) %}
+  {% set xr = xmax - xmin if (xmax - xmin) != 0 else 1 %}
+  {% set yr = (ymax - ymin) if (ymax - ymin) != 0 else 1 %}
+  {% set mid = (0 - ymin) / yr %}
+  <svg viewBox="0 0 {{ w }} {{ h }}" class="w-full h-28">
+    <rect x="0" y="0" width="{{ w }}" height="{{ h }}" fill="#f9fafb" />
+    <!-- zero line -->
+    <line x1="0" y1="{{ h - (h * mid) }}" x2="{{ w }}" y2="{{ h - (h * mid) }}" stroke="#e5e7eb" stroke-width="1" />
+    {% set first = True %}
+    {% set d = '' %}
+    {% for (tx, ty) in series %}
+      {% set x = ((tx - xmin) / xr) * (w - 6) + 3 %}
+      {% set y = h - (((ty - ymin) / yr) * (h - 6) + 3) %}
+      {% if first %}
+        {% set d = 'M ' ~ x ~ ' ' ~ y %}
+        {% set first = False %}
+      {% else %}
+        {% set d = d ~ ' L ' ~ x ~ ' ' ~ y %}
+      {% endif %}
+    {% endfor %}
+    <path d="{{ d }}" fill="none" stroke="#10b981" stroke-width="2" />
+  </svg>
+{% endif %}
+

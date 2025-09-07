@@ -168,6 +168,18 @@ class RiskManager:
                         st.high_water = max(st.high_water, mark)
                     else:
                         st.low_water = min(st.low_water, mark)
+                # Emit a lightweight position snapshot for the dashboard
+                try:
+                    emit_metric("position", {
+                        "instId": inst,
+                        "side": side,
+                        "size": abs(sz),
+                        "entry": avg,
+                        "mark": mark,
+                        "sl": getattr(st, 'sl_px', None),
+                    })
+                except Exception:
+                    pass
                 await self._maybe_adjust_sl(inst, side)
                 # Update global exposure on every positions push
                 await self._recompute_exposure()

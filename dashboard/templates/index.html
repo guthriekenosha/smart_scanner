@@ -95,5 +95,25 @@
       </table>
     </div>
   </div>
+
+  <div class="bg-white rounded shadow p-4 lg:col-span-1">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="font-medium">PnL (last <span id="pnl_window_label">240</span>m)</h2>
+      <select class="border rounded px-1 py-0.5 text-xs" hx-get="/partials/pnl" hx-target="#pnl" hx-swap="outerHTML" onchange="document.getElementById('pnl_window_label').innerText=this.value">
+        <option value="60">60</option>
+        <option value="120">120</option>
+        <option value="240" selected>240</option>
+        <option value="480">480</option>
+      </select>
+    </div>
+    <div id="pnl" hx-get="/partials/pnl?mins=240" hx-trigger="load, every 10s" hx-swap="outerHTML"></div>
+  </div>
+
+  <div class="bg-white rounded shadow p-4 lg:col-span-2">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="font-medium">Positions</h2>
+    </div>
+    <div id="positions" hx-get="/partials/positions" hx-trigger="load, every 5s" hx-swap="outerHTML"></div>
+  </div>
 </div>
 {% endblock %}

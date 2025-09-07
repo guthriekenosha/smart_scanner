@@ -47,6 +47,8 @@ templates.env.filters["ago"] = _ago  # type: ignore[attr-defined]
 signals: Deque[Dict[str, Any]] = deque(maxlen=MAX_BUF)
 orders: Deque[Dict[str, Any]] = deque(maxlen=MAX_BUF)
 errors: Deque[Dict[str, Any]] = deque(maxlen=MAX_BUF)
+# Live positions keyed by symbol (net) or symbol|side in hedge mode
+positions_map: Dict[str, Dict[str, Any]] = {}
 
 
 class Hub:
@@ -277,6 +279,26 @@ async def _tailer_task() -> None:
             orders.append(ev)
         elif k.endswith("error"):
             errors.append(ev)
+        elif k == "position":
+            try:
+                inst = ev.get("instId") or ev.get("symbol")
+                side = (ev.get("side") or "").lower()
+                size = float(ev.get("size") or 0.0)
+                key = inst if side in ("", None, "net") else f"{inst}|{side}"
+                if size <= 0:
+                    positions_map.pop(key, None)
+                else:
+                    positions_map[key] = {
+                        "instId": inst,
+                        "side": side or "net",
+                        "size": size,
+                        "entry": float(ev.get("entry") or 0.0),
+                        "mark": float(ev.get("mark") or 0.0),
+                        "sl": ev.get("sl"),
+                        "ts": ev.get("ts") or time.time(),
+                    }
+            except Exception:
+                pass
 
     # Tail the file
     pos = 0
@@ -320,6 +342,26 @@ async def _tailer_task() -> None:
                     elif k.endswith("error"):
                         html = _render_row(req, "error", ev)
                         await hub.broadcast("errors", html)
+                    if k == "position":
+                        try:
+                            inst = ev.get("instId") or ev.get("symbol")
+                            side = (ev.get("side") or "").lower()
+                            size = float(ev.get("size") or 0.0)
+                            key = inst if side in ("", None, "net") else f"{inst}|{side}"
+                            if size <= 0:
+                                positions_map.pop(key, None)
+                            else:
+                                positions_map[key] = {
+                                    "instId": inst,
+                                    "side": side or "net",
+                                    "size": size,
+                                    "entry": float(ev.get("entry") or 0.0),
+                                    "mark": float(ev.get("mark") or 0.0),
+                                    "sl": ev.get("sl"),
+                                    "ts": ev.get("ts") or time.time(),
+                                }
+                        except Exception:
+                            pass
         except Exception:
             # sleep and retry on any I/O parse errors
             await asyncio.sleep(0.5)
@@ -420,6 +462,70 @@ def _filter_orders(kind: str = "all", limit: int = 50) -> List[Dict[str, Any]]:
 async def partial_orders(request: Request, kind: str = "all", limit: int = 50):
     rows = _filter_orders(kind, limit)
     return templates.TemplateResponse("_orders_tbody.html", {"request": request, "orders": rows})
+
+
+def _start_of_day() -> float:
+    t = time.localtime()
+    sod = time.struct_time((t.tm_year, t.tm_mon, t.tm_mday, 0, 0, 0, t.tm_wday, t.tm_yday, t.tm_isdst))
+    return time.mktime(sod)
+
+
+def _positions_list() -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for st in positions_map.values():
+        try:
+            entry = float(st.get("entry") or 0.0)
+            mark = float(st.get("mark") or 0.0)
+            size = float(st.get("size") or 0.0)
+            side = (st.get("side") or "net").lower()
+            pnl_u = 0.0
+            if entry > 0 and mark > 0 and size > 0:
+                pnl_u = (mark - entry) * size if side != "short" else (entry - mark) * size
+        except Exception:
+            pnl_u = 0.0
+        out.append({
+            "symbol": st.get("instId"),
+            "side": st.get("side"),
+            "size": st.get("size"),
+            "entry": st.get("entry"),
+            "mark": st.get("mark"),
+            "sl": st.get("sl"),
+            "pnl_u": pnl_u,
+            "ts": st.get("ts"),
+        })
+    out.sort(key=lambda x: (x.get("symbol") or "", x.get("side") or ""))
+    return out
+
+
+@app.get("/partials/positions", response_class=HTMLResponse)
+async def partial_positions(request: Request):
+    rows = _positions_list()
+    return templates.TemplateResponse("_positions.html", {"request": request, "positions": rows})
+
+
+def _pnl_series(window_mins: int = 240, points: int = 100) -> List[tuple[float, float]]:
+    cutoff = time.time() - (window_mins * 60)
+    closes = [ev for ev in orders if ev.get("kind") == "trade_close" and float(ev.get("ts", 0)) >= cutoff]
+    closes.sort(key=lambda e: float(e.get("ts", 0)))
+    series: List[tuple[float, float]] = []
+    acc = 0.0
+    for ev in closes:
+        pnl = ev.get("pnl")
+        try:
+            acc += float(pnl) if pnl is not None else 0.0
+        except Exception:
+            pass
+        series.append((float(ev.get("ts", time.time())), acc))
+    if len(series) > points and points > 0:
+        step = len(series) / points
+        series = [series[int(i*step)] for i in range(points)]
+    return series
+
+
+@app.get("/partials/pnl", response_class=HTMLResponse)
+async def partial_pnl(request: Request, mins: int = 240):
+    series = _pnl_series(mins, 120)
+    return templates.TemplateResponse("_pnl.html", {"request": request, "series": series, "mins": mins})
 
 
 @app.get("/stream")
