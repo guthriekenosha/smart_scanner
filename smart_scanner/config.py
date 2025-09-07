@@ -373,5 +373,8 @@ class Config:
     tpsl_retry_mult: float = float(os.getenv("TPSL_RETRY_MULT", "3.0"))  # multiply epsilon for retry
     tpsl_retry_trigger_type: str = os.getenv("TPSL_RETRY_TRIGGER_TYPE", "mark")  # last|mark|index
 
+    # Ensure venue leverage matches plan on each entry (per instrument)
+    set_leverage_on_entry: int = int(os.getenv("SET_LEVERAGE_ON_ENTRY", "0"))  # 0/1
+
 
 CONFIG = Config()

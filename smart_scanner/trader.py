@@ -724,6 +724,20 @@ class AutoTrader:
             except Exception:
                 pass
 
+        # Optionally set venue leverage for this instrument before placing the order
+        try:
+            if CONFIG.set_leverage_on_entry and not self.paper:
+                # Use the planned leverage and current margin mode / position side
+                await client.set_leverage(
+                    s.symbol,
+                    leverage,
+                    margin_mode=margin_mode,
+                    position_side=pos_side_entry if (str(CONFIG.trading_position_mode or "net").lower() == "long_short") else None,
+                )
+        except Exception:
+            # Best-effort; continue even if venue rejects the leverage change
+            pass
+
         resp = await client.place_order(
             s.symbol,
             s.side,
