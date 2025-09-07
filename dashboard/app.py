@@ -544,6 +544,43 @@ async def sse_stream() -> StreamingResponse:
     return StreamingResponse(_gen(), media_type="text/event-stream")
 
 
+def _find_event(bucket: str, ts: float) -> Optional[Dict[str, Any]]:
+    src: List[Dict[str, Any]]
+    if bucket == "signals":
+        src = list(signals)
+    elif bucket == "orders":
+        src = list(orders)
+    else:
+        src = list(errors)
+    # find nearest matching ts
+    best = None
+    best_dt = 1e9
+    for ev in src:
+        try:
+            t = float(ev.get("ts"))
+            dt = abs(t - ts)
+            if dt < best_dt:
+                best = ev
+                best_dt = dt
+        except Exception:
+            continue
+    return best
+
+
+@app.get("/partials/details", response_class=HTMLResponse)
+async def partial_details(request: Request, bucket: str, ts: float):
+    ev = _find_event(bucket, ts)
+    title = f"{bucket.title()} details"
+    if not ev:
+        return templates.TemplateResponse("_details.html", {"request": request, "title": title, "body": "No data"})
+    try:
+        body = orjson.dumps(ev, option=orjson.OPT_INDENT_2).decode()
+    except Exception:
+        import json as _json
+        body = _json.dumps(ev, indent=2, ensure_ascii=False)
+    return templates.TemplateResponse("_details.html", {"request": request, "title": title, "body": body})
+
+
 if __name__ == "__main__":
     import uvicorn
 

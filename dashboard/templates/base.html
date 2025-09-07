@@ -7,13 +7,45 @@
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/sse.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+      /* Dark theme overrides */
+      .dark body { background-color: #0f172a; color: #e5e7eb; }
+      .dark .bg-white { background-color: #111827 !important; }
+      .dark .bg-gray-50 { background-color: #0f172a !important; }
+      .dark .bg-gray-100 { background-color: #1f2937 !important; }
+      .dark .text-gray-900 { color: #e5e7eb !important; }
+      .dark .text-gray-500 { color: #9ca3af !important; }
+      .dark table thead { color: #e5e7eb; }
+      .dark .shadow { box-shadow: 0 1px 2px rgba(0,0,0,.6); }
+      .cursor-pointer { cursor: pointer; }
+      /* Drawer overlay */
+      #drawer .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); }
+      #drawer .panel { position: fixed; right: 0; top: 0; bottom: 0; width: min(720px, 100%); background: #fff; overflow: auto; padding: 1rem; }
+      .dark #drawer .panel { background: #111827; }
+      pre.json { white-space: pre-wrap; word-break: break-word; }
+    </style>
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark') document.documentElement.classList.add('dark');
+      })();
+      function toggleTheme(){
+        const el = document.documentElement;
+        const dark = el.classList.toggle('dark');
+        localStorage.setItem('theme', dark ? 'dark' : 'light');
+      }
+      function closeDrawer(){ const d = document.getElementById('drawer'); if (d) d.innerHTML=''; }
+    </script>
   </head>
   <body class="bg-gray-50 text-gray-900">
     <div class="max-w-7xl mx-auto p-6">
-      <h1 class="text-2xl font-semibold mb-4">Smart Scanner Dashboard</h1>
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">Smart Scanner Dashboard</h1>
+        <button onclick="toggleTheme()" class="px-2 py-1 text-sm rounded bg-gray-100">Toggle Theme</button>
+      </div>
       {% block content %}{% endblock %}
       <footer class="mt-8 text-sm text-gray-500">Live updates via SSE • FastAPI + HTMX</footer>
     </div>
+    <div id="drawer"></div>
   </body>
   </html>
-

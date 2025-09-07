@@ -1,4 +1,5 @@
-<tr class="border-b hover:bg-gray-50 {% if ev.get('side') == 'buy' %} bg-blue-50/20 {% else %} bg-yellow-50/20 {% endif %}">
+<tr class="border-b hover:bg-gray-50 {% if ev.get('side') == 'buy' %} bg-blue-50/20 {% else %} bg-yellow-50/20 {% endif %} cursor-pointer"
+    hx-get="/partials/details?bucket=signals&ts={{ ev.get('ts') }}" hx-target="#drawer" hx-swap="innerHTML" hx-trigger="click">
   <td class="p-2 text-xs text-gray-500 whitespace-nowrap">{{ ev.get('ts') | ago }}</td>
   <td class="p-2 whitespace-nowrap">{{ ev.get('symbol','') }}</td>
   <td class="p-2 text-center">{{ ev.get('timeframe','') }}</td>
