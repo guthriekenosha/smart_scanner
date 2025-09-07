@@ -38,6 +38,7 @@ class PosState:
     sl_px: Optional[float] = None
     be_done: bool = False
     margin_mode: str = "cross"
+    open_ts: float = 0.0
 
 
 class RiskManager:
@@ -104,7 +105,14 @@ class RiskManager:
                         ts_last = self._last_close.get(key)
                         now = time.time()
                         if ts_last is None or (now - ts_last) > 5.0:
-                            emit_metric("trade_close", {"instId": inst, "side": side, "reason": "manual", "updateTime": int(now * 1000)})
+                            info = {"instId": inst, "side": side, "reason": "manual", "updateTime": int(now * 1000)}
+                            try:
+                                st_prev = self._states.get(key)
+                                if st_prev and float(st_prev.open_ts or 0) > 0:
+                                    info["duration_sec"] = float(now - float(st_prev.open_ts))
+                            except Exception:
+                                pass
+                            emit_metric("trade_close", info)
                         # cleanup last_close entry on flat
                         self._last_close.pop(key, None)
                     except Exception:
@@ -157,7 +165,7 @@ class RiskManager:
                 async with self._lock:
                     st = self._states.get(key)
                     if st is None:
-                        st = PosState(entry=avg, side=side, size=abs(sz), high_water=mark, low_water=mark, mark=mark, margin_mode=mm)
+                        st = PosState(entry=avg, side=side, size=abs(sz), high_water=mark, low_water=mark, mark=mark, margin_mode=mm, open_ts=time.time())
                         self._states[key] = st
                     else:
                         st.size = abs(sz)
@@ -177,6 +185,7 @@ class RiskManager:
                         "entry": avg,
                         "mark": mark,
                         "sl": getattr(st, 'sl_px', None),
+                        "ts": time.time(),
                     })
                 except Exception:
                     pass

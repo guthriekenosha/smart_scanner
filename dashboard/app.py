@@ -132,8 +132,8 @@ def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
             status = "ok" if (code == "0" or tid) else "err"
             info = f"id {tid}" if tid else (tp.get("msg") or "")
             info_full = orjson.dumps(tp).decode() if tp else ""
-        elif kind == "order_api_sl":
-            label = "SL"
+    elif kind == "order_api_sl":
+        label = "SL"
             sl = ev.get("sl") or {}
             code = str((sl or {}).get("code", "0"))
             sid = (sl or {}).get("tpslId") or (sl or {}).get("algoId")
@@ -155,10 +155,17 @@ def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
             code = str((res or {}).get("code", "0"))
             status = "ok" if code == "0" else "err"
             info_full = orjson.dumps(res).decode()
-        else:
-            # fallback: compact string of keys likely interesting
-            msg = ev.get("msg") or ev.get("info") or ""
-            info = str(msg)[:180]
+    elif kind == "trade_close":
+        label = "Close"
+        reason = ev.get("reason") or "close"
+        pnl = ev.get("pnl")
+        dur = ev.get("duration_sec")
+        info = (f"{reason}" + (f", pnl {pnl}" if pnl is not None else "") + (f", dur {int(dur//60)}m{int(dur%60)}s" if dur is not None else "")).strip(', ')
+        status = "ok"
+    else:
+        # fallback: compact string of keys likely interesting
+        msg = ev.get("msg") or ev.get("info") or ""
+        info = str(msg)[:180]
             try:
                 info_full = orjson.dumps(ev).decode()
             except Exception:
@@ -181,7 +188,7 @@ def _render_row(request: Request, kind: str, ev: Dict[str, Any]) -> str:
     template = None
     if kind == "signal":
         template = "_row_signal.html"
-    elif kind.startswith("order_api") or kind.startswith("order") or kind.startswith("risk_"):
+    elif kind.startswith("order_api") or kind.startswith("order") or kind.startswith("risk_") or kind == "trade_close":
         template = "_row_order.html"
     else:
         template = "_row_error.html"
