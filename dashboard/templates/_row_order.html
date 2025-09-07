@@ -1,18 +1,44 @@
+{# Fallback: compute a minimal view if 'view' isn't provided (initial page render) #}
+{% if view is not defined %}
+  {% set _kind = ev.get('kind','') %}
+  {% set _symbol = ev.get('symbol') or ev.get('instId') %}
+  {% set _side = ev.get('side') or '' %}
+  {% set _label = 'Order' %}
+  {% set _status = 'ok' %}
+  {% set _info = '' %}
+  {% set _info_full = '' %}
+  {% if _kind == 'order_api_tp' %}
+    {% set _label = 'TP' + (ev.get('which')|string if ev.get('which') is not none else '') %}
+    {% set _tp = ev.get('tp') or {} %}
+    {% set _status = 'ok' if (_tp.get('code') == '0' or _tp.get('tpslId') or _tp.get('algoId')) else 'err' %}
+    {% set _info = ('id ' ~ (_tp.get('tpslId') or _tp.get('algoId'))) if (_tp.get('tpslId') or _tp.get('algoId')) else (_tp.get('msg') or '') %}
+  {% elif _kind == 'order_api_sl' %}
+    {% set _label = 'SL' %}
+    {% set _sl = ev.get('sl') or {} %}
+    {% set _status = 'ok' if (_sl.get('code') == '0' or _sl.get('tpslId') or _sl.get('algoId')) else 'err' %}
+    {% set _info = ('id ' ~ (_sl.get('tpslId') or _sl.get('algoId'))) if (_sl.get('tpslId') or _sl.get('algoId')) else (_sl.get('msg') or '') %}
+  {% elif _kind == 'order_api' %}
+    {% set _label = 'Order' %}
+    {% set _resp = ev.get('resp') or {} %}
+    {% set _status = 'ok' if (_resp.get('code') == '0') else 'err' %}
+    {% set _info = (_resp.get('msg') or 'placed') if (_resp.get('code') == '0') else _resp.get('msg') %}
+  {% elif _kind == 'risk_trail_sl' %}
+    {% set _label = 'Trail SL' %}
+    {% set _side = ev.get('side') or _side %}
+    {% set _info = 'new ' ~ (ev.get('new_sl') or '') %}
+  {% endif %}
+  {% set view = {'label': _label, 'symbol': _symbol, 'side': _side, 'info': _info, 'status': _status, 'info_full': _info_full} %}
+{% endif %}
+
 <tr class="border-b hover:bg-gray-50 {% if view.status == 'err' %} bg-red-50/30 {% else %}{% if view.side in ['buy','long'] %} bg-blue-50/20 {% elif view.side in ['sell','short'] %} bg-yellow-50/20 {% endif %}{% endif %}">
   <td class="p-2 text-xs text-gray-500 whitespace-nowrap">{{ ev.get('ts') | ago }}</td>
   <td class="p-2 whitespace-nowrap">
-    <span class="px-2 py-0.5 rounded-full text-xs font-medium
-      {% if view.status == 'ok' %} bg-green-100 text-green-700 {% else %} bg-red-100 text-red-700 {% endif %}">
-      {{ view.label }}
-    </span>
+    <span class="px-2 py-0.5 rounded-full text-xs font-medium {% if view.status == 'ok' %} bg-green-100 text-green-700 {% else %} bg-red-100 text-red-700 {% endif %}">{{ view.label }}</span>
   </td>
   <td class="p-2 text-center">{{ view.symbol }}</td>
   <td class="p-2 text-center">
     {% if view.side %}
-      <span class="px-2 py-0.5 rounded-full text-xs font-medium
-        {% if view.side == 'buy' or view.side == 'long' %} bg-blue-100 text-blue-700 {% else %} bg-yellow-100 text-yellow-700 {% endif %}">
-        {{ view.side }}
-      </span>
+      <span class="px-2 py-0.5 rounded-full text-xs font-medium {% if view.side == 'buy' or view.side == 'long' %} bg-blue-100 text-blue-700 {% else %} bg-yellow-100 text-yellow-700 {% endif %}">{{ view.side }}</span>
     {% else %} — {% endif %}
   </td>
   <td class="p-2 text-xs truncate max-w-[18rem]" title="{{ view.info_full }}">{{ view.info }}</td>

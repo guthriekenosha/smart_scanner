@@ -169,3 +169,8 @@ individual files in /usr/share/doc/*/copyright.
 Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
 permitted by applicable law.
 Last login: Sun Sep  7 15:54:47 2025 from 35.235.244.33
+
+
+git add -A
+git commit -m "your message"
+git push -u origin main
