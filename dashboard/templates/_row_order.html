@@ -1,11 +1,18 @@
 <tr class="border-b hover:bg-gray-50">
-  <td class="p-2">{{ ev.get('kind','') }}</td>
-  <td class="p-2 text-center">{{ ev.get('symbol') or ev.get('instId') }}</td>
-  <td class="p-2 text-center">{{ ev.get('side','') }}</td>
-  <td class="p-2 text-xs">
-    {% if ev.get('which') %}TP{{ ev.get('which') }}{% endif %}
-    {% if ev.get('resp') %} {{ ev.get('resp')|string }}{% endif %}
-    {% if ev.get('sl') %} {{ ev.get('sl')|string }}{% endif %}
+  <td class="p-2 whitespace-nowrap">
+    <span class="px-2 py-0.5 rounded-full text-xs font-medium
+      {% if view.status == 'ok' %} bg-green-100 text-green-700 {% else %} bg-red-100 text-red-700 {% endif %}">
+      {{ view.label }}
+    </span>
   </td>
+  <td class="p-2 text-center">{{ view.symbol }}</td>
+  <td class="p-2 text-center">
+    {% if view.side %}
+      <span class="px-2 py-0.5 rounded-full text-xs font-medium
+        {% if view.side == 'buy' or view.side == 'long' %} bg-blue-100 text-blue-700 {% else %} bg-yellow-100 text-yellow-700 {% endif %}">
+        {{ view.side }}
+      </span>
+    {% else %} — {% endif %}
+  </td>
+  <td class="p-2 text-xs truncate max-w-[18rem]">{{ view.info }}</td>
 </tr>
-

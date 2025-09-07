@@ -22,6 +22,27 @@ app = FastAPI(title="Smart Scanner Dashboard")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
+def _ago(ts: Optional[float]) -> str:
+    try:
+        if ts is None:
+            return "—"
+        now = time.time()
+        d = max(0, now - float(ts))
+        if d < 60:
+            return f"{int(d)}s ago"
+        m = int(d // 60)
+        if m < 60:
+            return f"{m}m ago"
+        h = int(m // 60)
+        return f"{h}h ago"
+    except Exception:
+        return "—"
+
+
+# expose as a Jinja filter
+templates.env.filters["ago"] = _ago  # type: ignore[attr-defined]
+
+
 # Ring buffers (in-memory recent history)
 signals: Deque[Dict[str, Any]] = deque(maxlen=MAX_BUF)
 orders: Deque[Dict[str, Any]] = deque(maxlen=MAX_BUF)
@@ -89,6 +110,61 @@ def _classify(ev: Dict[str, Any]) -> str:
     return k
 
 
+def _normalize_order_view(ev: Dict[str, Any]) -> Dict[str, Any]:
+    kind = str(ev.get("kind") or "")
+    symbol = ev.get("symbol") or ev.get("instId") or "?"
+    side = ev.get("side") or ""
+    ts = ev.get("ts")
+    label = kind
+    info = ""
+    status = "ok"
+
+    try:
+        if kind == "order_api_tp":
+            which = ev.get("which")
+            label = f"TP{which}" if which else "TP"
+            tp = ev.get("tp") or {}
+            code = str((tp or {}).get("code", "0"))
+            tid = (tp or {}).get("tpslId") or (tp or {}).get("algoId")
+            status = "ok" if (code == "0" or tid) else "err"
+            info = f"id {tid}" if tid else (tp.get("msg") or "")
+        elif kind == "order_api_sl":
+            label = "SL"
+            sl = ev.get("sl") or {}
+            code = str((sl or {}).get("code", "0"))
+            sid = (sl or {}).get("tpslId") or (sl or {}).get("algoId")
+            status = "ok" if (code == "0" or sid) else "err"
+            info = f"id {sid}" if sid else (sl.get("msg") or "")
+        elif kind == "order_api":
+            label = "Order"
+            resp = ev.get("resp") or {}
+            code = str((resp or {}).get("code", "0"))
+            status = "ok" if code == "0" else "err"
+            info = (resp.get("msg") or "placed") if code == "0" else resp.get("msg")
+        elif kind == "risk_trail_sl":
+            label = "Trail SL"
+            side = ev.get("side") or side
+            info = f"new {ev.get('new_sl')}"
+            res = ev.get("res") or {}
+            code = str((res or {}).get("code", "0"))
+            status = "ok" if code == "0" else "err"
+        else:
+            # fallback: compact string of keys likely interesting
+            msg = ev.get("msg") or ev.get("info") or ""
+            info = str(msg)[:180]
+    except Exception:
+        pass
+
+    return {
+        "ts": ts,
+        "label": label,
+        "symbol": symbol,
+        "side": side,
+        "info": info,
+        "status": status,
+    }
+
+
 def _render_row(request: Request, kind: str, ev: Dict[str, Any]) -> str:
     template = None
     if kind == "signal":
@@ -97,8 +173,12 @@ def _render_row(request: Request, kind: str, ev: Dict[str, Any]) -> str:
         template = "_row_order.html"
     else:
         template = "_row_error.html"
+    # Prepare view model for orders
+    ctx = {"ev": ev}
+    if template == "_row_order.html":
+        ctx["view"] = _normalize_order_view(ev)
     # Render to a string
-    html = templates.get_template(template).render(ev=ev, request=request)
+    html = templates.get_template(template).render(**ctx, request=request)
     # Ensure no stray newlines break SSE payloads
     return html.replace("\n", " ")
 
@@ -228,4 +308,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("app:app", host="0.0.0.0", port=int(os.getenv("PORT", "8081")), reload=False)
-
