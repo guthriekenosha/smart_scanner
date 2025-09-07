@@ -1,0 +1,9 @@
+<tr class="border-b hover:bg-gray-50">
+  <td class="p-2">{{ ev.get('symbol','') }}</td>
+  <td class="p-2 text-center">{{ ev.get('timeframe','') }}</td>
+  <td class="p-2 text-center">{{ ev.get('side','') }}</td>
+  <td class="p-2 text-center">{{ '%.2f'|format(ev.get('score',0)) }}</td>
+  <td class="p-2 text-center">{{ '%.1f'|format((ev.get('prob',0)*100) if ev.get('prob') is not none else 0) }}</td>
+  <td class="p-2 text-right">{{ ev.get('price','') }}</td>
+</tr>
+

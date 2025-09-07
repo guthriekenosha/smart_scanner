@@ -948,6 +948,62 @@ class AutoTrader:
                         tp1 = px * (1.0 - bps_tp)
                         slp = px * (1.0 + bps_sl)
 
+                # Ensure triggers satisfy strict venue inequality vs latest price
+                # Fetch latest price (best effort) and nudge triggers by a small epsilon if needed.
+                try:
+                    last_px = None
+                    try:
+                        tks = await client.get_tickers(CONFIG.ws_inst_type)
+                        for t in tks or []:
+                            inst = t.get("instId") or t.get("symbol") or t.get("instid")
+                            if inst == s.symbol:
+                                for k in ("last", "lastPrice", "lastPr", "lastPx", "lastTradedPx", "close", "c", "px"):
+                                    v = t.get(k)
+                                    if v is not None:
+                                        try:
+                                            last_px = float(v)
+                                            break
+                                        except Exception:
+                                            pass
+                                break
+                    except Exception:
+                        last_px = None
+                    if last_px is not None:
+                        eps_bps = max(1.0, float(CONFIG.trigger_eps_bps))
+                        eps = float(last_px) * (eps_bps / 10000.0)
+                        # Stop-loss: long => sl < last; short => sl > last
+                        if slp is not None:
+                            orig = float(slp)
+                            if s.side == "buy" and float(slp) >= float(last_px):
+                                slp = max(0.0, float(last_px) - float(eps))
+                            elif s.side == "sell" and float(slp) <= float(last_px):
+                                slp = float(last_px) + float(eps)
+                            if abs(float(slp) - orig) > 0:
+                                try:
+                                    emit_metric("sl_adjust_for_last", {"symbol": s.symbol, "from": orig, "to": float(slp), "last": float(last_px), "eps_bps": eps_bps})
+                                except Exception:
+                                    pass
+                        # Take-profit: long => tp > last; short => tp < last
+                        def _tp_adjust(label: str, val: float | None) -> float | None:
+                            if val is None:
+                                return None
+                            o = float(val)
+                            n = o
+                            if s.side == "buy" and o <= float(last_px):
+                                n = float(last_px) + float(eps)
+                            elif s.side == "sell" and o >= float(last_px):
+                                n = float(last_px) - float(eps)
+                            if abs(n - o) > 0:
+                                try:
+                                    emit_metric("tp_adjust_for_last", {"symbol": s.symbol, "which": label, "from": o, "to": n, "last": float(last_px), "eps_bps": eps_bps})
+                                except Exception:
+                                    pass
+                            return n
+                        tp1 = _tp_adjust("tp1", tp1)
+                        tp2 = _tp_adjust("tp2", tp2)
+                except Exception:
+                    pass
+
                 # Adjust SL towards a valid trigger relative to the latest price (venue requires strict inequality)
                 try:
                     last_px = None
@@ -1033,6 +1089,44 @@ class AutoTrader:
                         ok_sl = bool(tpsl_sl and (tpsl_sl.get("tpslId") or tpsl_sl.get("algoId"))) if isinstance(tpsl_sl, dict) else False
                         if not ok_sl:
                             emit_metric("order_api_error", {"stage": "place_sl", "symbol": s.symbol, "reduce_side": reduce_side, "resp": tpsl_sl})
+                            # Safety retry with wider epsilon and alternate trigger type
+                            if CONFIG.tpsl_retry_on_fail:
+                                try:
+                                    last_px = None
+                                    tks = await client.get_tickers(CONFIG.ws_inst_type)
+                                    for t in tks or []:
+                                        inst = t.get("instId") or t.get("symbol") or t.get("instid")
+                                        if inst == s.symbol:
+                                            for k in ("last","lastPrice","lastPr","lastPx","lastTradedPx","close","c","px"):
+                                                v = t.get(k)
+                                                if v is not None:
+                                                    last_px = float(v)
+                                                    break
+                                            break
+                                    if last_px is not None:
+                                        eps = float(last_px) * (max(1.0, float(CONFIG.trigger_eps_bps)) * float(CONFIG.tpsl_retry_mult) / 10000.0)
+                                        sl_fb = slp
+                                        if s.side == "buy":
+                                            sl_fb = max(0.0, float(last_px) - eps)
+                                        else:
+                                            sl_fb = float(last_px) + eps
+                                        tpsl_sl2 = await client.place_tpsl(
+                                            s.symbol,
+                                            reduce_side,
+                                            margin_mode=margin_mode,
+                                            position_side=pos_side_reduce,
+                                            size="-1",
+                                            sl_trigger_price=_round(sl_fb),
+                                            sl_order_price="-1",
+                                            trigger_price_type=str(CONFIG.tpsl_retry_trigger_type or "mark"),
+                                            reduce_only=True,
+                                        )
+                                        ok_sl2 = bool(tpsl_sl2 and (tpsl_sl2.get("tpslId") or tpsl_sl2.get("algoId"))) if isinstance(tpsl_sl2, dict) else False
+                                        emit_metric("order_api_sl_retry", {"symbol": s.symbol, "ok": ok_sl2, "resp": tpsl_sl2})
+                                        if ok_sl2:
+                                            ok_sl = True
+                                except Exception:
+                                    pass
                         else:
                             emit_metric("order_api_sl", {"symbol": s.symbol, "side": reduce_side, "sl": tpsl_sl})
                 except Exception as e:
@@ -1085,6 +1179,41 @@ class AutoTrader:
                             ok_tp1 = bool(tpsl_tp1 and (tpsl_tp1.get("tpslId") or tpsl_tp1.get("algoId"))) if isinstance(tpsl_tp1, dict) else False
                             if not ok_tp1:
                                 emit_metric("order_api_error", {"stage": "place_tp1", "symbol": s.symbol, "resp": tpsl_tp1})
+                                if CONFIG.tpsl_retry_on_fail:
+                                    try:
+                                        last_px = None
+                                        tks = await client.get_tickers(CONFIG.ws_inst_type)
+                                        for t in tks or []:
+                                            inst = t.get("instId") or t.get("symbol") or t.get("instid")
+                                            if inst == s.symbol:
+                                                for k in ("last","lastPrice","lastPr","lastPx","lastTradedPx","close","c","px"):
+                                                    v = t.get(k)
+                                                    if v is not None:
+                                                        last_px = float(v)
+                                                        break
+                                                break
+                                        if last_px is not None:
+                                            eps = float(last_px) * (max(1.0, float(CONFIG.trigger_eps_bps)) * float(CONFIG.tpsl_retry_mult) / 10000.0)
+                                            tp1_fb = tp1
+                                            if s.side == "buy" and float(tp1_fb) <= float(last_px):
+                                                tp1_fb = float(last_px) + eps
+                                            elif s.side == "sell" and float(tp1_fb) >= float(last_px):
+                                                tp1_fb = float(last_px) - eps
+                                            tpsl_tp1b = await client.place_tpsl(
+                                                s.symbol,
+                                                reduce_side,
+                                                margin_mode=margin_mode,
+                                                position_side=pos_side_reduce,
+                                                size=f"{sz1:.6f}",
+                                                tp_trigger_price=_round(tp1_fb),
+                                                tp_order_price="-1",
+                                                trigger_price_type=str(CONFIG.tpsl_retry_trigger_type or "mark"),
+                                                reduce_only=True,
+                                            )
+                                            ok_tp1b = bool(tpsl_tp1b and (tpsl_tp1b.get("tpslId") or tpsl_tp1b.get("algoId"))) if isinstance(tpsl_tp1b, dict) else False
+                                            emit_metric("order_api_tp_retry", {"symbol": s.symbol, "which": 1, "ok": ok_tp1b, "resp": tpsl_tp1b})
+                                    except Exception:
+                                        pass
                             else:
                                 emit_metric("order_api_tp", {"symbol": s.symbol, "which": 1, "tp": tpsl_tp1})
                     if tp2 is not None and CONFIG.scale_out_pct2 > 0 and placed_tp < remaining:
@@ -1107,6 +1236,41 @@ class AutoTrader:
                             ok_tp2 = bool(tpsl_tp2 and (tpsl_tp2.get("tpslId") or tpsl_tp2.get("algoId"))) if isinstance(tpsl_tp2, dict) else False
                             if not ok_tp2:
                                 emit_metric("order_api_error", {"stage": "place_tp2", "symbol": s.symbol, "resp": tpsl_tp2})
+                                if CONFIG.tpsl_retry_on_fail:
+                                    try:
+                                        last_px = None
+                                        tks = await client.get_tickers(CONFIG.ws_inst_type)
+                                        for t in tks or []:
+                                            inst = t.get("instId") or t.get("symbol") or t.get("instid")
+                                            if inst == s.symbol:
+                                                for k in ("last","lastPrice","lastPr","lastPx","lastTradedPx","close","c","px"):
+                                                    v = t.get(k)
+                                                    if v is not None:
+                                                        last_px = float(v)
+                                                        break
+                                                break
+                                        if last_px is not None:
+                                            eps = float(last_px) * (max(1.0, float(CONFIG.trigger_eps_bps)) * float(CONFIG.tpsl_retry_mult) / 10000.0)
+                                            tp2_fb = tp2
+                                            if s.side == "buy" and float(tp2_fb) <= float(last_px):
+                                                tp2_fb = float(last_px) + eps
+                                            elif s.side == "sell" and float(tp2_fb) >= float(last_px):
+                                                tp2_fb = float(last_px) - eps
+                                            tpsl_tp2b = await client.place_tpsl(
+                                                s.symbol,
+                                                reduce_side,
+                                                margin_mode=margin_mode,
+                                                position_side=pos_side_reduce,
+                                                size=f"{sz2:.6f}",
+                                                tp_trigger_price=_round(tp2_fb),
+                                                tp_order_price="-1",
+                                                trigger_price_type=str(CONFIG.tpsl_retry_trigger_type or "mark"),
+                                                reduce_only=True,
+                                            )
+                                            ok_tp2b = bool(tpsl_tp2b and (tpsl_tp2b.get("tpslId") or tpsl_tp2b.get("algoId"))) if isinstance(tpsl_tp2b, dict) else False
+                                            emit_metric("order_api_tp_retry", {"symbol": s.symbol, "which": 2, "ok": ok_tp2b, "resp": tpsl_tp2b})
+                                    except Exception:
+                                        pass
                             else:
                                 emit_metric("order_api_tp", {"symbol": s.symbol, "which": 2, "tp": tpsl_tp2})
                 except Exception as e:

@@ -105,3 +105,34 @@ Deploy with the prebuilt image
      - docker compose -f compose.prod.yaml up -d
 3) Update to a new version: re-run pull+up after your CI publishes a fresh image.
 
+
+Reverse Proxy (Caddy) with TLS + Basic Auth
+-------------------------------------------
+This repo includes a small Caddy proxy that fronts the dashboard over HTTPS with Basic Auth.
+
+Prereqs
+- DNS A record pointing to your server (e.g., dashboard.example.com).
+- Open ports 80 and 443 in your cloud firewall.
+
+Configure
+1) Generate a bcrypt password hash (replace 'YOURPASS'):
+   - docker run --rm caddy caddy hash-password --plaintext 'YOURPASS'
+2) Set environment variables when running compose (or export them in your shell):
+   - DASHBOARD_DOMAIN=dashboard.example.com
+   - DASHBOARD_EMAIL=you@example.com
+   - DASHBOARD_ADMIN_USER=admin
+   - DASHBOARD_ADMIN_PASSHASH=<paste bcrypt hash>
+3) Start proxy + dashboard:
+   - DASHBOARD_DOMAIN=dashboard.example.com \
+     DASHBOARD_EMAIL=you@example.com \
+     DASHBOARD_ADMIN_USER=admin \
+     DASHBOARD_ADMIN_PASSHASH='<bcrypt>' \
+     docker compose -f compose.prod.yaml up -d --build proxy dashboard
+
+Access
+- https://dashboard.example.com (use the Basic Auth credentials you set)
+- The Caddyfile is at `Caddyfile`. Adjust headers or add routes as needed.
+
+Notes
+- Keep the scanner container private; the proxy only exposes the dashboard.
+- Caddy stores TLS state in the named volumes `caddy_data` and `caddy_config`.

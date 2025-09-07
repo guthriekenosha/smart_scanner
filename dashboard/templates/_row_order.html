@@ -1,0 +1,11 @@
+<tr class="border-b hover:bg-gray-50">
+  <td class="p-2">{{ ev.get('kind','') }}</td>
+  <td class="p-2 text-center">{{ ev.get('symbol') or ev.get('instId') }}</td>
+  <td class="p-2 text-center">{{ ev.get('side','') }}</td>
+  <td class="p-2 text-xs">
+    {% if ev.get('which') %}TP{{ ev.get('which') }}{% endif %}
+    {% if ev.get('resp') %} {{ ev.get('resp')|string }}{% endif %}
+    {% if ev.get('sl') %} {{ ev.get('sl')|string }}{% endif %}
+  </td>
+</tr>
+

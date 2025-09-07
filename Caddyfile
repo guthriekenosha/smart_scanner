@@ -1,0 +1,26 @@
+{
+    # Optional: global email for Let's Encrypt
+    email {$EMAIL}
+}
+
+{$DOMAIN} {
+    encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+    }
+
+    # Basic auth for the whole site (change the hash!)
+    basicauth {
+        {$ADMIN_USER} {$ADMIN_PASSHASH}
+    }
+
+    reverse_proxy dashboard:8081
+}
+
+# Fallback (useful before DNS is set). Comment this out after DNS points.
+:80 {
+    respond "Caddy is running. Set DOMAIN env to enable HTTPS." 200
+}
+

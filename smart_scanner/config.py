@@ -366,5 +366,12 @@ class Config:
     enforce_min_margin: int = int(os.getenv("ENFORCE_MIN_MARGIN", "0"))  # 0/1
     enforce_min_margin_action: str = os.getenv("ENFORCE_MIN_MARGIN_ACTION", "close")  # close | topup
 
+    # Trigger buffers: ensure TP/SL trigger prices satisfy venue's strict inequality vs last price
+    trigger_eps_bps: float = float(os.getenv("TRIGGER_EPS_BPS", "6"))  # 6 bps default
+    # Retry behavior for TP/SL attachment failures
+    tpsl_retry_on_fail: int = int(os.getenv("TPSL_RETRY_ON_FAIL", "1"))
+    tpsl_retry_mult: float = float(os.getenv("TPSL_RETRY_MULT", "3.0"))  # multiply epsilon for retry
+    tpsl_retry_trigger_type: str = os.getenv("TPSL_RETRY_TRIGGER_TYPE", "mark")  # last|mark|index
+
 
 CONFIG = Config()
