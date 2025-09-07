@@ -1,0 +1,115 @@
+smart_scanner/
+├─ config.py
+├─ blofin_client.py
+├─ indicators.py
+├─ regime.py
+├─ bandit.py
+├─ strategies.py
+├─ signal_types.py
+├─ signal_engine.py
+├─ lifecycle.py
+├─ ws_public.py
+└─ scanner_runner.py
+
+External Signal Gateway (smart_scanner/signal_gateway.py)
+-------------------------------------------------------
+Run a small HTTP server to accept external signals and route them to the built‑in AutoTrader.
+
+Usage:
+  python -m smart_scanner.signal_gateway --host 0.0.0.0 --port 8080
+
+Env options:
+  WEBHOOK_SECRET=your_shared_token
+  WEBHOOK_HOST=0.0.0.0
+  WEBHOOK_PORT=8080
+
+Endpoint:
+  POST /signal (alias: /webhook)
+  Headers (optional): X-Webhook-Token: your_shared_token
+  Body (JSON):
+    {
+      "symbol": "BTC-USDT",          // or "ticker": "BINANCE:BTCUSDT"
+      "side": "buy",                 // buy/sell or long/short
+      "timeframe": "15m",            // optional, defaults "ext"
+      "price": 61234.56,              // optional; server fetches last if missing
+      "score": 4.2,                   // used by AutoTrader eligibility
+      "prob": 0.66,                   // used by AutoTrader eligibility
+      "components": ["tv_signal"],   // optional
+      "tags": ["external"]           // optional
+    }
+
+AutoTrader gates (from .env via CONFIG):
+  ENABLE_AUTOTRADE=1        # enable routing to trader
+  PAPER_TRADING=1           # use paper fills (keep at 1 until validated)
+  TRADE_NOTIONAL_USD=50     # per-trade notional (USD)
+  TRADE_MIN_SCORE=3.6       # min score to accept
+  TRADE_MIN_PROB=0.62       # min probability to accept
+
+Notes:
+  - When PAPER_TRADING=1, fills are simulated and logged to scanner_metrics.jsonl.
+  - When PAPER_TRADING=0, valid API keys are required in smart_scanner/.env and orders are sent to BloFin.
+  - Symbol normalization handles BINANCE:BTCUSDT, BTCUSDT, BTC/USDT, btc-usdt -> BTC-USDT.
+
+
+# recommended env (override anything you want)
+export BLOFIN_BASE_URL="https://openapi.blofin.com"
+export BLOFIN_API_KEY="..."
+export BLOFIN_API_SECRET="..."
+export BLOFIN_API_PASSPHRASE=""
+
+export SCAN_TIMEFRAMES="1m,3m,5m,15m"
+export TOP_SYMBOLS=80
+export CANDLES_CONCURRENCY=6
+export CANDLES_CHUNK=24
+export CANDLES_INTER_CHUNK_SLEEP=0.6
+export SCORE_MIN=3.0
+
+export PRINT_LIQUIDITY_DEBUG=1
+
+export MIN_QUOTE_VOL_USDT=200000
+export MIN_LAST_PRICE=0.01
+export MAX_CANDIDATES_PER_TF=8
+export MAX_CANDIDATES_PER_LOOP=24
+export REQUIRE_MULTI_COMPONENTS=1
+
+python -m smart_scanner.scanner_runner --loop
+
+
+Event-driven mode (WS candle closes)
+- Ensure in smart_scanner/.env:
+  - USE_WS_CANDLES=1
+  - UNIVERSE_FROM_WS=1
+  - (optional) SWAP_ONLY=1
+- Run: python -m smart_scanner.scanner_runner --event
+
+New toggles in smart_scanner/.env
+- REQUIRE_MULTI_COMPONENTS=1           # require >= MIN_COMPONENTS strategies to pass
+- MIN_COMPONENTS=2
+- SWAP_ONLY=1                          # only include SWAP in WS universe
+- EXCLUDE_PATTERNS=BTCDOM-*,XAUT-*     # pattern-based excludes for universe
+- BLUECHIP_ONLY=1                      # keep only configured blue-chip bases
+- BLUECHIP_BASES=BTC,ETH,SOL,BNB,XRP,DOGE,ADA,LINK,DOT,LTC,TRX,AVAX,BCH,XMR,ATOM,FIL,AAVE,UNI,ETC,NEAR
+- METRICS_ENABLED=1
+- METRICS_PATH=scanner_metrics.jsonl
+- BANDIT_STATE_PATH=bandit_state.json
+
+Metrics
+- Signals are appended as JSONL to METRICS_PATH when METRICS_ENABLED=1
+
+Bandit persistence
+- Weights load from BANDIT_STATE_PATH on start; saved every 5 minutes.
+
+Orderflow WS (books + trades)
+- Enable with USE_WS_ORDERFLOW=1
+- Gating options:
+  - MAX_SPREAD_BPS=8.0     # skip symbols with wider spreads
+  - MIN_TRADES_PER_MIN=2.0 # require minimum trade activity
+  - ORDERFLOW_WINDOW_SEC=60
+
+Calibrated probability
+- Provide a JSON file at CALIBRATION_PATH with fields:
+  {"bias": 0.0, "coef": {"score": 0.8, "ret_5": 0.2, "atr14_pct": -0.5, ...}}
+- If present, it overrides the heuristic probability.
+
+Backtest
+- Run: python -m smart_scanner.backtest --metrics scanner_metrics.jsonl --tp 0.01 --sl 0.005 --horizon 10

@@ -51,4 +51,5 @@ smart_scanner/.env.local
 
 # Package metadata under project dir
 smart_scanner/smart_scanner.egg-info/
+smart_scanner/.env
 

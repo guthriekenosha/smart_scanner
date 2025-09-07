@@ -1,0 +1,22 @@
+services:
+  scanner:
+    image: ghcr.io/OWNER/REPO:latest  # TODO: replace OWNER/REPO with your ghcr namespace/repo
+    container_name: perp-bot
+    restart: unless-stopped
+    env_file:
+      - ./smart_scanner/.env
+      - ./smart_scanner/.env.local
+    environment:
+      - ENV_FILE=/app/smart_scanner/.env
+    volumes:
+      - perpdata:/data
+    command: ["python", "-m", "smart_scanner.scanner_runner", "--loop"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  perpdata:
+

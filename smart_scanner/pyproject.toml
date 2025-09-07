@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-scanner"
+version = "0.1.0"
+description = "Modular, adaptive BloFin crypto signal scanner"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Kenosha Guthrie" }]
+dependencies = [
+  "aiohttp>=3.9",
+  "websockets>=12",
+  "pandas>=2.2",
+  "numpy>=1.26",
+  "rich>=13"
+]
+
+[tool.setuptools]
+packages = { find = {} }
+
+# Optional: include non-code files if you add any (configs, templates)
+[tool.setuptools.package-data]
+smart_scanner = ["*.json", "*.yaml", "*.yml"]
+
+# Editable install metadata (pip install -e .) will just work.

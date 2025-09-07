@@ -1,0 +1,25 @@
+services:
+  scanner:
+    build: .
+    container_name: perp-bot
+    restart: unless-stopped
+    # Inject environment. Values from these files will override defaults in the image.
+    env_file:
+      - ./smart_scanner/.env
+      - ./smart_scanner/.env.local
+    environment:
+      # Helps the in-app loader find the same .env for consistency (optional)
+      - ENV_FILE=/app/smart_scanner/.env
+    volumes:
+      # Persist metrics, bandit state, caches across restarts
+      - perpdata:/data
+    command: ["python", "-m", "smart_scanner.scanner_runner", "--loop"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  perpdata:
+

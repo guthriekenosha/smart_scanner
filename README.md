@@ -149,3 +149,7 @@ Headless Deployment
 - To run 24/7 without your laptop, use Docker + Compose on a small VPS or systemd on a server.
 - See `deploy/README_DEPLOY.md` for step-by-step instructions and the provided `Dockerfile` and `compose.yaml`.
 # smart_scanner
+# smart_scanner
+# smart_scanner
+# smart_scanner
+# smart_scanner

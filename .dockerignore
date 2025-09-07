@@ -1,0 +1,28 @@
+# VCS and editor cruft
+.git
+.gitignore
+.DS_Store
+*.swp
+*.swo
+
+# Python build and cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+smart_scanner/smart_scanner.egg-info/
+build/
+dist/
+
+# Local virtualenvs
+.venv/
+venv/
+
+# Local artifacts and logs
+artifacts/
+*.jsonl
+*.log
+
+# Do not bake local env files into the image; pass via env_file or ENV
+smart_scanner/.env
+smart_scanner/.env.local
+
