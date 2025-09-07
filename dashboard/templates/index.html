@@ -10,13 +10,13 @@
     <div class="flex items-center justify-between mb-2">
       <h2 class="font-medium">Recent Signals</h2>
       <div class="space-x-2 text-sm">
-        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=all" hx-target="#signals" hx-swap="outerHTML">All</button>
-        <button class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded" hx-get="/partials/signals?side=buy&tf=all" hx-target="#signals" hx-swap="outerHTML">Buys</button>
-        <button class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded" hx-get="/partials/signals?side=sell&tf=all" hx-target="#signals" hx-swap="outerHTML">Sells</button>
-        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=1m" hx-target="#signals" hx-swap="outerHTML">1m</button>
-        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=5m" hx-target="#signals" hx-swap="outerHTML">5m</button>
-        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=15m" hx-target="#signals" hx-swap="outerHTML">15m</button>
-        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/signals?side=all&tf=1h" hx-target="#signals" hx-swap="outerHTML">1H</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setSigFilter('all','all')" hx-get="/partials/signals?side=all&tf=all" hx-target="#signals" hx-swap="outerHTML">All</button>
+        <button class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded" onclick="setSigFilter('buy',null)" hx-get="/partials/signals?side=buy&tf=all" hx-target="#signals" hx-swap="outerHTML">Buys</button>
+        <button class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded" onclick="setSigFilter('sell',null)" hx-get="/partials/signals?side=sell&tf=all" hx-target="#signals" hx-swap="outerHTML">Sells</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setSigFilter(null,'1m')" hx-get="/partials/signals?side=all&tf=1m" hx-target="#signals" hx-swap="outerHTML">1m</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setSigFilter(null,'5m')" hx-get="/partials/signals?side=all&tf=5m" hx-target="#signals" hx-swap="outerHTML">5m</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setSigFilter(null,'15m')" hx-get="/partials/signals?side=all&tf=15m" hx-target="#signals" hx-swap="outerHTML">15m</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setSigFilter(null,'1h')" hx-get="/partials/signals?side=all&tf=1h" hx-target="#signals" hx-swap="outerHTML">1H</button>
       </div>
     </div>
     <div class="overflow-auto max-h-96">
@@ -46,12 +46,12 @@
     <div class="flex items-center justify-between mb-2">
       <h2 class="font-medium">Orders & TP/SL</h2>
       <div class="space-x-2 text-sm">
-        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/orders?kind=all" hx-target="#orders" hx-swap="outerHTML">All</button>
-        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/orders?kind=order" hx-target="#orders" hx-swap="outerHTML">Orders</button>
-        <button class="px-2 py-0.5 bg-green-100 text-green-800 rounded" hx-get="/partials/orders?kind=tp" hx-target="#orders" hx-swap="outerHTML">TP</button>
-        <button class="px-2 py-0.5 bg-red-100 text-red-800 rounded" hx-get="/partials/orders?kind=sl" hx-target="#orders" hx-swap="outerHTML">SL</button>
-        <button class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded" hx-get="/partials/orders?kind=trail" hx-target="#orders" hx-swap="outerHTML">Trail</button>
-        <button class="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded" hx-get="/partials/orders?kind=error" hx-target="#orders" hx-swap="outerHTML">Errors</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setOrderFilter('all')" hx-get="/partials/orders?kind=all" hx-target="#orders" hx-swap="outerHTML">All</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" onclick="setOrderFilter('order')" hx-get="/partials/orders?kind=order" hx-target="#orders" hx-swap="outerHTML">Orders</button>
+        <button class="px-2 py-0.5 bg-green-100 text-green-800 rounded" onclick="setOrderFilter('tp')" hx-get="/partials/orders?kind=tp" hx-target="#orders" hx-swap="outerHTML">TP</button>
+        <button class="px-2 py-0.5 bg-red-100 text-red-800 rounded" onclick="setOrderFilter('sl')" hx-get="/partials/orders?kind=sl" hx-target="#orders" hx-swap="outerHTML">SL</button>
+        <button class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded" onclick="setOrderFilter('trail')" hx-get="/partials/orders?kind=trail" hx-target="#orders" hx-swap="outerHTML">Trail</button>
+        <button class="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded" onclick="setOrderFilter('error')" hx-get="/partials/orders?kind=error" hx-target="#orders" hx-swap="outerHTML">Errors</button>
       </div>
     </div>
     <div class="overflow-auto max-h-96">

@@ -2,8 +2,10 @@
 <div class="panel">
   <div class="flex items-center justify-between mb-3">
     <h3 class="font-medium">{{ title }}</h3>
-    <button class="px-2 py-1 bg-gray-100 rounded" onclick="closeDrawer()">Close</button>
+    <div class="space-x-2">
+      <button class="px-2 py-1 bg-gray-100 rounded" onclick="copyDrawerJSON()">Copy</button>
+      <button class="px-2 py-1 bg-gray-100 rounded" onclick="closeDrawer()">Close</button>
+    </div>
   </div>
   <pre class="json text-xs">{{ body }}</pre>
 </div>
-

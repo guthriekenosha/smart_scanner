@@ -35,6 +35,23 @@
         localStorage.setItem('theme', dark ? 'dark' : 'light');
       }
       function closeDrawer(){ const d = document.getElementById('drawer'); if (d) d.innerHTML=''; }
+      document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ closeDrawer(); }});
+      function copyDrawerJSON(){
+        const pre = document.querySelector('#drawer pre.json');
+        if(pre && navigator.clipboard){ navigator.clipboard.writeText(pre.innerText); }
+      }
+      function setSigFilter(side, tf){ if(side!==null) localStorage.setItem('sig_side', side); if(tf!==null) localStorage.setItem('sig_tf', tf); }
+      function setOrderFilter(kind){ localStorage.setItem('ord_kind', kind); }
+      function applySavedFilters(){
+        if (window.htmx){
+          const side = localStorage.getItem('sig_side') || 'all';
+          const tf = localStorage.getItem('sig_tf') || 'all';
+          window.htmx.ajax('GET', `/partials/signals?side=${side}&tf=${tf}`, {target:'#signals', swap:'outerHTML'});
+          const kind = localStorage.getItem('ord_kind') || 'all';
+          window.htmx.ajax('GET', `/partials/orders?kind=${kind}`, {target:'#orders', swap:'outerHTML'});
+        }
+      }
+      document.addEventListener('DOMContentLoaded', function(){ setTimeout(applySavedFilters, 50); });
     </script>
   </head>
   <body class="bg-gray-50 text-gray-900">
