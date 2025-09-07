@@ -330,6 +330,9 @@ class Config:
     atr_sl_mult: float = float(os.getenv("ATR_SL_MULT", "1.2"))
     atr_tp1_mult: float = float(os.getenv("ATR_TP1_MULT", "1.6"))
     atr_tp2_mult: float = float(os.getenv("ATR_TP2_MULT", "3.0"))
+    # Optional bounds on ATR percent used for TPSL to avoid tiny TP or huge SL on spikes
+    atr_tpsl_min_pct: float = float(os.getenv("ATR_TPSL_MIN_PCT", "0"))  # 0 = disabled
+    atr_tpsl_max_pct: float = float(os.getenv("ATR_TPSL_MAX_PCT", "0"))  # 0 = disabled
     scale_out_pct1: float = float(os.getenv("SCALE_OUT_PCT1", "0.5"))  # 0..1
     scale_out_pct2: float = float(os.getenv("SCALE_OUT_PCT2", "0.5"))  # 0..1; remainder after TP1
     use_signal_level: int = int(os.getenv("USE_SIGNAL_LEVEL", "1"))  # if Signal.level present, anchor SL

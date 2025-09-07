@@ -172,5 +172,9 @@ Last login: Sun Sep  7 15:54:47 2025 from 35.235.244.33
 
 
 git add -A
-git commit -m "your message"
+git commit -m "Dashboard Indicators"
 git push -u origin main
+
+
+Right now my profits with my TP1 and TP2 are low returns for example UNIUSDT(price$9.29)has margin $54.54 with 3x leverage, TP1 $0.04,$0.19, and SL $2.19
+

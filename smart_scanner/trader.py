@@ -933,7 +933,21 @@ class AutoTrader:
                                 r_mult *= max(0.7, min(1.3, rm))
                         except Exception:
                             pass
-                        R = atr_pct * px * float(r_mult)
+                        # Clamp ATR% if bounds configured
+                        atr_eff = atr_pct
+                        try:
+                            if getattr(CONFIG, 'atr_tpsl_min_pct', 0.0) > 0 and atr_eff < CONFIG.atr_tpsl_min_pct:
+                                atr_eff = float(CONFIG.atr_tpsl_min_pct)
+                            if getattr(CONFIG, 'atr_tpsl_max_pct', 0.0) > 0 and atr_eff > CONFIG.atr_tpsl_max_pct:
+                                atr_eff = float(CONFIG.atr_tpsl_max_pct)
+                            if atr_eff != atr_pct:
+                                try:
+                                    emit_metric("tpsl_atr_clamped", {"symbol": s.symbol, "atr_pct": atr_pct, "atr_eff": atr_eff})
+                                except Exception:
+                                    pass
+                        except Exception:
+                            atr_eff = atr_pct
+                        R = atr_eff * px * float(r_mult)
                         lvl = s.level if CONFIG.use_signal_level else None
                         if s.side == "buy":
                             raw_sl = px - R
