@@ -323,6 +323,8 @@ class Config:
     enable_tpsl: int = int(os.getenv("ENABLE_TPSL", "1"))
     tp_bps: float = float(os.getenv("TP_BPS", "80"))  # 0.8% default (legacy)
     sl_bps: float = float(os.getenv("SL_BPS", "50"))  # 0.5% default (legacy)
+    # Optional: second TP distance for bps mode (enables two TPs in bps)
+    tp2_bps: float = float(os.getenv("TP2_BPS", "0"))  # 0 = disabled
 
     # Smart TP/SL (ATR/level based)
     enable_smart_tpsl: int = int(os.getenv("ENABLE_SMART_TPSL", "1"))

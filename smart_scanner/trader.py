@@ -966,14 +966,19 @@ class AutoTrader:
                             tp1 = px - (CONFIG.atr_tp1_mult * R)
                             tp2 = px - (CONFIG.atr_tp2_mult * R)
                 else:
-                    # Legacy fixed bps mode
-                    bps_tp = CONFIG.tp_bps / 10000.0
+                    # Legacy fixed bps mode (now supports optional TP2 via TP2_BPS)
+                    bps_tp1 = CONFIG.tp_bps / 10000.0
+                    bps_tp2 = (CONFIG.tp2_bps / 10000.0) if getattr(CONFIG, 'tp2_bps', 0.0) > 0 else None
                     bps_sl = CONFIG.sl_bps / 10000.0
                     if s.side == "buy":
-                        tp1 = px * (1.0 + bps_tp)
+                        tp1 = px * (1.0 + bps_tp1)
+                        if bps_tp2 is not None:
+                            tp2 = px * (1.0 + bps_tp2)
                         slp = px * (1.0 - bps_sl)
                     else:
-                        tp1 = px * (1.0 - bps_tp)
+                        tp1 = px * (1.0 - bps_tp1)
+                        if bps_tp2 is not None:
+                            tp2 = px * (1.0 - bps_tp2)
                         slp = px * (1.0 + bps_sl)
 
                 # Ensure triggers satisfy strict venue inequality vs latest price
