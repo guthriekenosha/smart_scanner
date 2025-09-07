@@ -109,6 +109,28 @@ class RiskManager:
                         self._last_close.pop(key, None)
                     except Exception:
                         pass
+                    # Best-effort: cancel any lingering TP/SL algos for this instrument/side
+                    try:
+                        async with BlofinClient() as c:
+                            items = await c.orders_tpsl_pending(inst_id=inst, limit=100)
+                            for it in items or []:
+                                try:
+                                    # If in hedge mode, match the same positionSide; in net mode, cancel all for inst
+                                    if str(CONFIG.trading_position_mode or "net").lower() == "long_short":
+                                        ps = (it.get("positionSide") or "").lower()
+                                        if ps and ps in ("long", "short") and ps != side:
+                                            continue
+                                    tid = it.get("tpslId") or it.get("algoId")
+                                    if tid:
+                                        resx = await c.cancel_tpsl(inst_id=inst, tpsl_id=str(tid))
+                                        try:
+                                            emit_metric("risk_cancel_tpsl_on_flat", {"instId": inst, "tpslId": str(tid), "resp": resx})
+                                        except Exception:
+                                            pass
+                                except Exception:
+                                    continue
+                    except Exception:
+                        pass
                     try:
                         emit_metric("trade_flat", {"instId": inst, "side": side, "reason": "position_zero"})
                     except Exception:
