@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div id="summary" hx-get="/partials/summary" hx-trigger="load, every 5s" hx-swap="outerHTML">
+<div id="summary" hx-get="/partials/summary" hx-trigger="load, every 5s" hx-swap="outerHTML" hx-include="#summary_mins">
   {% include "_summary.html" %}
   </div>
 
@@ -45,6 +45,14 @@
   <div class="bg-white rounded shadow p-4">
     <div class="flex items-center justify-between mb-2">
       <h2 class="font-medium">Orders & TP/SL</h2>
+      <div class="space-x-2 text-sm">
+        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/orders?kind=all" hx-target="#orders" hx-swap="outerHTML">All</button>
+        <button class="px-2 py-0.5 bg-gray-100 rounded" hx-get="/partials/orders?kind=order" hx-target="#orders" hx-swap="outerHTML">Orders</button>
+        <button class="px-2 py-0.5 bg-green-100 text-green-800 rounded" hx-get="/partials/orders?kind=tp" hx-target="#orders" hx-swap="outerHTML">TP</button>
+        <button class="px-2 py-0.5 bg-red-100 text-red-800 rounded" hx-get="/partials/orders?kind=sl" hx-target="#orders" hx-swap="outerHTML">SL</button>
+        <button class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded" hx-get="/partials/orders?kind=trail" hx-target="#orders" hx-swap="outerHTML">Trail</button>
+        <button class="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded" hx-get="/partials/orders?kind=error" hx-target="#orders" hx-swap="outerHTML">Errors</button>
+      </div>
     </div>
     <div class="overflow-auto max-h-96">
       <table class="min-w-full text-sm">

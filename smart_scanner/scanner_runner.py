@@ -1112,7 +1112,12 @@ async def _refresh_exposure(client: BlofinClient) -> None:
     except Exception:
         total = 0.0
     try:
-        GLOBAL_TRADER._exposure = float(total)
+        total_f = float(total)
+        GLOBAL_TRADER._exposure = total_f
+        try:
+            emit_metric("exposure", {"total": total_f})
+        except Exception:
+            pass
     except Exception:
         pass
 

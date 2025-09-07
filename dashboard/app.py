@@ -210,7 +210,7 @@ def _window(items: Deque[Dict[str, Any]], secs: int) -> List[Dict[str, Any]]:
     return list(reversed(out))
 
 
-def _compute_summary() -> Dict[str, Any]:
+def _compute_summary(window_mins: int = 60) -> Dict[str, Any]:
     last_bal = None
     for ev in reversed(orders):
         if ev.get("kind") == "order_balance_snapshot":
@@ -238,12 +238,13 @@ def _compute_summary() -> Dict[str, Any]:
                 last_exposure = None
             break
 
-    # Error rate in last 60 minutes
-    orders_1h = [e for e in _window(orders, 3600) if str(e.get("kind")).startswith("order_")]
-    errors_1h = _window(errors, 3600)
+    # Error rate in last N minutes
+    secs = max(60, int(window_mins) * 60)
+    orders_n = [e for e in _window(orders, secs) if str(e.get("kind")).startswith("order_")]
+    errors_n = _window(errors, secs)
     err_rate = 0.0
-    denom = max(1, len(orders_1h) + len(errors_1h))
-    err_rate = (len(errors_1h) / denom) * 100.0
+    denom = max(1, len(orders_n) + len(errors_n))
+    err_rate = (len(errors_n) / denom) * 100.0
 
     # Freshness
     last_sig_ts = signals[-1].get("ts") if signals else None
@@ -258,6 +259,7 @@ def _compute_summary() -> Dict[str, Any]:
         "last_signal_ts": last_sig_ts,
         "last_order_ts": last_ord_ts,
         "last_error_ts": last_err_ts,
+        "window_mins": window_mins,
     }
 
 
@@ -342,7 +344,7 @@ async def index(request: Request):
             "signals": sigs,
             "orders": ords,
             "errors": errs,
-            "summary": _compute_summary(),
+            "summary": _compute_summary(60),
         },
     )
 
@@ -368,8 +370,8 @@ async def summary():
 
 
 @app.get("/partials/summary", response_class=HTMLResponse)
-async def partial_summary(request: Request):
-    return templates.TemplateResponse("_summary.html", {"request": request, "summary": _compute_summary()})
+async def partial_summary(request: Request, mins: int = 60):
+    return templates.TemplateResponse("_summary.html", {"request": request, "summary": _compute_summary(mins)})
 
 
 def _filter_signals(side: str = "all", tf: str = "all", limit: int = 50) -> List[Dict[str, Any]]:

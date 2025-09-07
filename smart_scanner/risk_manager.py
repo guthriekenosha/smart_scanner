@@ -420,7 +420,12 @@ class RiskManager:
         # Late import to avoid circular dependency
         try:
             from .trader import GLOBAL_TRADER  # type: ignore
-            GLOBAL_TRADER._exposure = float(total)
+            total_f = float(total)
+            GLOBAL_TRADER._exposure = total_f
+            try:
+                emit_metric("exposure", {"total": total_f})
+            except Exception:
+                pass
         except Exception:
             pass
 

@@ -23,7 +23,18 @@
     <div class="mt-1 text-lg font-semibold">
       {{ '%.1f'|format(summary.err_rate or 0) }}%
     </div>
-    <div class="text-xs text-gray-500 mt-1">Last error {{ summary.last_error_ts | ago }}</div>
+    <div class="text-xs text-gray-500 mt-1 flex items-center gap-2">
+      <span>Last error {{ summary.last_error_ts | ago }}</span>
+      <label class="ml-auto text-gray-400 text-[11px]">Window</label>
+      <select id="summary_mins" name="mins" class="border rounded px-1 py-0.5 text-xs"
+              hx-get="/partials/summary" hx-trigger="change" hx-target="#summary" hx-swap="outerHTML">
+        {% set m = summary.window_mins or 60 %}
+        <option value="15" {% if m == 15 %}selected{% endif %}>15m</option>
+        <option value="30" {% if m == 30 %}selected{% endif %}>30m</option>
+        <option value="60" {% if m == 60 %}selected{% endif %}>60m</option>
+        <option value="120" {% if m == 120 %}selected{% endif %}>2h</option>
+        <option value="240" {% if m == 240 %}selected{% endif %}>4h</option>
+      </select>
+    </div>
   </div>
 </div>
-
