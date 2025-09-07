@@ -18,6 +18,7 @@
       .dark table thead { color: #e5e7eb; }
       .dark .shadow { box-shadow: 0 1px 2px rgba(0,0,0,.6); }
       .cursor-pointer { cursor: pointer; }
+      .sticky-top { position: sticky; top: 0; z-index: 30; background: inherit; }
       /* Drawer overlay */
       #drawer .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); }
       #drawer .panel { position: fixed; right: 0; top: 0; bottom: 0; width: min(720px, 100%); background: #fff; overflow: auto; padding: 1rem; }
@@ -95,6 +96,7 @@
         const es = localStorage.getItem('err_sort') || 'ts';
         if (es !== 'ts') applyErrorsSort(es);
       }
+      function fmtAgo(s){ s=Math.max(0,Math.floor(s)); if(s<60) return s+"s ago"; const m=Math.floor(s/60); if(m<60) return m+"m ago"; const h=Math.floor(m/60); return h+"h ago"; }
       function refreshCounts(){
         fetch('/api/summary').then(r=>r.json()).then(j=>{
           const sc = document.getElementById('sig_count'); if (sc) sc.innerText = `(${j.signals})`;
@@ -108,6 +110,12 @@
             dot.className = `inline-block align-middle w-2 h-2 rounded-full ${fresh ? 'bg-green-500' : 'bg-gray-400'} ml-1`;
             dot.title = j.last_signal_ts ? `${Math.max(0, Math.floor(age))}s ago` : 'no recent signal';
           }
+          const sigLast = document.getElementById('sig_last_t'); if(sigLast){ const now=Date.now()/1000; sigLast.innerText = j.last_signal_ts ? fmtAgo(now - j.last_signal_ts) : '—'; }
+          const ordLast = document.getElementById('ord_last_t'); if(ordLast){ const now=Date.now()/1000; ordLast.innerText = j.last_order_ts ? fmtAgo(now - j.last_order_ts) : '—'; }
+          const errLast = document.getElementById('err_last_t'); if(errLast){ const now=Date.now()/1000; errLast.innerText = j.last_error_ts ? fmtAgo(now - j.last_error_ts) : '—'; }
+          const posLast = document.getElementById('pos_last_t'); if(posLast){ const now=Date.now()/1000; posLast.innerText = j.last_position_ts ? fmtAgo(now - j.last_position_ts) : '—'; }
+          const sumLast = document.getElementById('sum_last'); const hb = document.getElementById('hb_dot'); if(sumLast && hb){ const now = new Date(); sumLast.innerText = now.toLocaleTimeString(); hb.className = `inline-block w-2 h-2 rounded-full ${hb.className.includes('bg-green-500')? 'bg-gray-400':'bg-green-500'}`; }
+          const pnlLast = document.getElementById('pnl_last_t'); if(pnlLast){ const now=Date.now()/1000; pnlLast.innerText = j.last_order_ts ? fmtAgo(now - j.last_order_ts) : '—'; }
         }).catch(()=>{});
       }
       document.addEventListener('DOMContentLoaded', function(){ setTimeout(applySavedFilters, 60); setInterval(autoResort, 5000); setInterval(refreshCounts, 5000); });

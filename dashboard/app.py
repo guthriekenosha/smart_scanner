@@ -400,6 +400,16 @@ async def summary():
         except Exception:
             return 0.0
 
+    # last position ts from live positions map
+    try:
+        last_pos_ts = 0.0
+        for st in positions_map.values():
+            t = float(st.get("ts") or 0.0)
+            if t > last_pos_ts:
+                last_pos_ts = t
+    except Exception:
+        last_pos_ts = 0.0
+
     out = {
         "signals": len(signals),
         "orders": len(orders),
@@ -407,6 +417,8 @@ async def summary():
         "last_signal_ts": _ts(signals[-1]) if signals else 0,
         "last_order_ts": _ts(orders[-1]) if orders else 0,
         "last_error_ts": _ts(errors[-1]) if errors else 0,
+        "last_position_ts": float(last_pos_ts),
+        "server_now": time.time(),
     }
     return JSONResponse(out)
 
