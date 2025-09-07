@@ -1,0 +1,54 @@
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.pytest_cache/
+.mypy_cache/
+.tox/
+
+# Environments
+.venv/
+venv/
+ENV/
+
+# Builds / Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Coverage / Test reports
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+nosetests.xml
+pytestdebug.log
+
+# Logs & Artifacts
+logs/
+*.log
+artifacts/
+*.jsonl
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node (just in case)
+node_modules/
+
+# Local env overrides (keep template .env tracked)
+.env.local
+**/.env.local
+smart_scanner/.env.local
+
+# Package metadata under project dir
+smart_scanner/smart_scanner.egg-info/
+
