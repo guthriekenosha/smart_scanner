@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en" data-theme="business">
+  <head>
+    <meta charset="utf-8" />
+    <title>Trader Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind + DaisyUI (sleek dark theme, no build step) -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@2.51.6/dist/full.css" rel="stylesheet">
+    <!-- HTMX (used by your partials) -->
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <!-- Icons (optional, for nicer UI) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+      .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(6px); }
+    </style>
+  </head>
+  <body class="bg-base-100 text-base-content">
+    <!-- Top bar -->
+    <div class="navbar bg-base-200/80 glass sticky top-0 z-50 shadow">
+      <div class="flex-1 px-4">
+        <span class="text-xl font-bold tracking-tight">Trader</span>
+        <span class="ml-3 badge badge-outline">Live</span>
+      </div>
+      <div class="flex-none px-4 items-center gap-3">
+        <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>
+      </div>
+    </div>
+
+    <main class="p-4 max-w-7xl mx-auto">
+      <!-- KPI summary -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4"
+           hx-get="/partials/summary" hx-trigger="load, every 3s" hx-target="#summary" hx-swap="outerHTML">
+        <div id="summary" class="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
+          <!-- The server will replace this whole block with _summary.html -->
+          <div class="card bg-base-200 shadow"><div class="card-body">
+            <h2 class="card-title">Signals</h2><div class="text-2xl font-semibold">—</div></div></div>
+          <div class="card bg-base-200 shadow"><div class="card-body">
+            <h2 class="card-title">Orders</h2><div class="text-2xl font-semibold">—</div></div></div>
+          <div class="card bg-base-200 shadow"><div class="card-body">
+            <h2 class="card-title">Errors</h2><div class="text-2xl font-semibold">—</div></div></div>
+          <div class="card bg-base-200 shadow"><div class="card-body">
+            <h2 class="card-title">Last Update</h2><div class="text-2xl font-semibold">—</div></div></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Left: Signals + Orders -->
+        <div class="lg:col-span-2 space-y-4">
+          <div class="card bg-base-200 shadow">
+            <div class="card-body">
+              <div class="flex justify-between items-center">
+                <h2 class="card-title">Signals</h2>
+                <span class="badge">Live</span>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra w-full">
+                  <thead>
+                    <tr>
+                      <th>TS</th><th>Stage</th><th>Symbol</th><th>Message</th>
+                    </tr>
+                  </thead>
+                  <tbody id="signals-tbody"
+                         hx-get="/partials/signals"
+                         hx-trigger="load, every 2s"
+                         hx-swap="innerHTML">
+                    <!-- Server fills with _signals_tbody.html -->
+                    <tr><td colspan="4" class="text-gray-500">Loading…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card bg-base-200 shadow">
+            <div class="card-body">
+              <h2 class="card-title">Orders / Risk / Exposure</h2>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra w-full">
+                  <thead>
+                    <tr>
+                      <th>TS</th><th>Kind</th><th>Symbol</th><th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody id="orders-tbody"
+                         hx-get="/partials/orders"
+                         hx-trigger="load, every 2s"
+                         hx-swap="innerHTML">
+                    <!-- Server fills with _orders_tbody.html (your app.py expects it) -->
+                    <tr><td colspan="4" class="text-gray-500">Loading…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Positions + Errors -->
+        <div class="space-y-4">
+          <div class="card bg-base-200 shadow">
+            <div class="card-body">
+              <h2 class="card-title">Open Positions</h2>
+              <div class="overflow-x-auto">
+                <table class="table table-compact w-full">
+                  <thead>
+                    <tr><th>Inst</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>SL</th><th>PnLᵤ</th></tr>
+                  </thead>
+                  <tbody id="positions-tbody"
+                         hx-get="/partials/positions"
+                         hx-trigger="load, every 2s"
+                         hx-swap="innerHTML">
+                    <!-- Server fills with _positions.html (your app.py expects it) -->
+                    <tr><td colspan="7" class="text-gray-500">Loading…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card bg-base-200 shadow">
+            <div class="card-body">
+              <h2 class="card-title">Errors & Warnings</h2>
+              <div class="h-64 overflow-y-auto">
+                <table class="table table-compact w-full">
+                  <thead><tr><th>TS</th><th>Stage</th><th>Symbol</th><th>Error</th></tr></thead>
+                  <tbody id="errors-tbody"
+                         hx-get="/partials/errors"
+                         hx-trigger="load, every 3s"
+                         hx-swap="innerHTML">
+                    <!-- Server fills with _errors_tbody.html (your rows use _row_error.html inside) -->
+                    <tr><td colspan="4" class="text-gray-500">Loading…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card bg-base-200 shadow">
+            <div class="card-body">
+              <h2 class="card-title">PnL (Today)</h2>
+              <!-- _pnl.html renders a server-side SVG sparkline -->
+              {% include "_pnl.html" %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details drawer target (your _row_error.html points hx-target here) -->
+      <div id="drawer"></div>
+    </main>
+
+    <script>
+      // Simple live status: turn dot red if any partial request fails
+      document.body.addEventListener('htmx:beforeOnLoad', function (evt) {
+        if (evt.detail.xhr.status >= 400) {
+          document.getElementById('status-dot').className = 'w-2.5 h-2.5 rounded-full bg-red-500 inline-block';
+        }
+      });
+      document.body.addEventListener('htmx:afterOnLoad', function () {
+        document.getElementById('status-dot').className = 'w-2.5 h-2.5 rounded-full bg-green-500 inline-block';
+      });
+      // Icons
+      if (window.lucide) { lucide.createIcons(); }
+    </script>
+  </body>
+</html>
