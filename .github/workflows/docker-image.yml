@@ -6,6 +6,8 @@ on:
     tags: [ 'v*', 'release-*' ]
     paths:
       - 'perp_bot/dashboard/**'
+      - 'Perp_Bot/dashboard/**'
+      - 'dashboard/**'
       - '.github/workflows/docker-image.yml'
   workflow_dispatch: {}
 
@@ -19,6 +21,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Debug tree (top-level)
+        run: |
+          pwd
+          ls -la
+
+      - name: Locate dashboard path
+        id: find
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidates=(
+            perp_bot/dashboard
+            Perp_Bot/dashboard
+            dashboard
+          )
+          found=""
+          for c in "${candidates[@]}"; do
+            if [ -f "$c/Dockerfile" ]; then
+              echo "Found: $c" >&2
+              echo "path=$c" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "ERROR: Could not find dashboard/Dockerfile in any known path" >&2
+          echo "Repo tree:" >&2
+          ls -la
+          exit 1
+
+      - name: Show resolved dashboard path
+        run: |
+          echo "Dashboard path: ${{ steps.find.outputs.path }}"
+          ls -la "${{ steps.find.outputs.path }}"
 
       - name: Set up QEMU (multi-arch)
         uses: docker/setup-qemu-action@v3
@@ -48,8 +83,8 @@ jobs:
       - name: Build and push (dashboard)
         uses: docker/build-push-action@v6
         with:
-          context: ./perp_bot/dashboard
-          file: ./perp_bot/dashboard/Dockerfile
+          context: ${{ steps.find.outputs.path }}
+          file: ${{ steps.find.outputs.path }}/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
