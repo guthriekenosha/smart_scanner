@@ -1,0 +1,54 @@
+services:
+  scanner:
+    image: ghcr.io/OWNER/REPO:latest  # TODO: replace OWNER/REPO with your ghcr namespace/repo
+    container_name: perp-bot
+    restart: unless-stopped
+    env_file:
+      - ./smart_scanner/.env
+      - ./smart_scanner/.env.local
+    environment:
+      - ENV_FILE=/app/smart_scanner/.env
+    volumes:
+      - perpdata:/data
+    command: ["python", "-m", "smart_scanner.scanner_runner", "--loop"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  dashboard:
+    build: ./dashboard
+    container_name: perp-dashboard
+    restart: unless-stopped
+    environment:
+      - METRICS_PATH=/data/scanner_metrics.jsonl
+    volumes:
+      - perpdata:/data:ro
+    ports:
+      - "8081:8081"
+
+  proxy:
+    image: caddy:2.7
+    container_name: perp-proxy
+    restart: unless-stopped
+    depends_on:
+      - dashboard
+    environment:
+      - DOMAIN=${DASHBOARD_DOMAIN:-example.com}
+      - EMAIL=${DASHBOARD_EMAIL:-you@example.com}
+      - ADMIN_USER=${DASHBOARD_ADMIN_USER:-admin}
+      # Example bcrypt for "changeme"; generate your own and override via env
+      - ADMIN_PASSHASH=${DASHBOARD_ADMIN_PASSHASH:-$2a$14$9r9ZK0h4E2Yxq7k7uE0fA.3f9KkQn2a9f2T90lq4Yt6oQm1u6b7yK}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  perpdata:
+  caddy_data:
+  caddy_config:
