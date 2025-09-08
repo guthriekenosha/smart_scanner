@@ -326,6 +326,7 @@ class BlofinClient:
         data = await self._request("POST", "/api/v1/account/set-leverage", body=body, auth=True)
         return data.get("data") or {}
 
+        # NOTE: Do NOT pass tp/sl fields here for brackets. Use submit_bracket() instead
     async def place_order(
         self,
         inst_id: str,
@@ -407,7 +408,8 @@ class BlofinClient:
         if client_order_id:
             body["clientOrderId"] = client_order_id
         raw = await self._request("POST", "/api/v1/trade/order-tpsl", body=body, auth=True)
-        # Normalize: return inner data dict (or first item) and attach top-level code/msg
+        # Normalize response: prefer the inner object (dict or first list item),
+        # then carry top-level code/msg so callers can inspect errors easily.
         try:
             code = str(raw.get("code", ""))
             msg = raw.get("msg")
@@ -536,3 +538,101 @@ class BlofinClient:
         q = {"instId": inst_id, "side": side}
         data = await self._request("GET", "/api/v1/trade/order/price-range", query=q, auth=True)
         return data.get("data") or {}
+
+    async def submit_bracket(
+        self,
+        *,
+        inst_id: str,
+        side: str,                 # "buy" or "sell" for entry
+        size: str,                 # base size as string
+        margin_mode: str = "cross",
+        position_side: str = "net",
+        # --- entry params ---
+        entry_type: str = "market",   # "market" | "limit" | "trigger"
+        price: str | None = None,      # required if entry_type == "limit"
+        trigger_price: str | None = None,  # required if entry_type == "trigger"
+        trigger_price_type: str = "last",
+        # --- exits (tp/sl) ---
+        tp_trigger: str | None = None,
+        tp_order: str | None = "-1",  # -1 => market on trigger per BloFin
+        sl_trigger: str | None = None,
+        sl_order: str | None = "-1",
+        # behavior
+        client_order_id: str | None = None,
+        attach_via_algo: bool = True,
+        post_fill_delay_sec: float = 0.8,
+    ) -> Dict[str, Any]:
+        """
+        Safe bracket submit for BloFin.
+        Prefers a single ALGO order with attached TP/SL (atomic). If not using trigger
+        entries, submits entry first and then places a TPSL strategy order, forcing
+        reduceOnly on exits to prevent accidental openers that can flatten positions.
+        """
+        # --- Path 1: Use ALGO with attachAlgoOrders (best when using trigger-based entries)
+        if attach_via_algo and entry_type == "trigger":
+            return await self.place_order_algo(
+                inst_id=inst_id,
+                side=side,
+                margin_mode=margin_mode,
+                position_side=position_side,
+                size=size,
+                order_price="-1",                # market on trigger
+                order_type="trigger",
+                trigger_price=trigger_price,
+                trigger_price_type=trigger_price_type,
+                attach_tp_trigger_price=tp_trigger,
+                attach_tp_order_price=tp_order,
+                attach_sl_trigger_price=sl_trigger,
+                attach_sl_order_price=sl_order,
+            )
+
+        # --- Path 2: Place entry first (market/limit), then TPSL strategy order
+        # NOTE: We DO NOT include tp/sl fields in the entry request to avoid detached children.
+        if entry_type not in {"market", "limit"}:
+            raise ValueError("submit_bracket: entry_type must be 'market', 'limit', or use attach_via_algo with 'trigger'.")
+
+        entry_order_type = "market" if entry_type == "market" else "limit"
+        entry = await self.place_order(
+            inst_id=inst_id,
+            side=side,
+            order_type=entry_order_type,
+            size=size,
+            price=price if entry_order_type == "limit" else None,
+            margin_mode=margin_mode,
+            position_side=position_side,
+            reduce_only=None,                 # entry must NOT be reduceOnly
+            client_order_id=client_order_id,
+            tp_trigger_price=None,            # do NOT attach tp/sl here
+            sl_trigger_price=None,
+        )
+
+        # Give the account/position snapshot a moment to reflect the fill
+        try:
+            if post_fill_delay_sec and post_fill_delay_sec > 0:
+                await asyncio.sleep(post_fill_delay_sec)
+        except Exception:
+            pass
+
+        # Submit TPSL strategy as a separate call, forcing reduceOnly
+        # In net mode, size "-1" means auto-close up to full position on trigger.
+        if tp_trigger is None and sl_trigger is None:
+            # No exits requested; return entry result
+            return entry
+
+        tpsl = await self.place_tpsl(
+            inst_id=inst_id,
+            side=side,                        # same side; exchange interprets with reduceOnly+size
+            margin_mode=margin_mode,
+            position_side=position_side,
+            size="-1",
+            tp_trigger_price=tp_trigger,
+            tp_order_price=tp_order,
+            sl_trigger_price=sl_trigger,
+            sl_order_price=sl_order,
+            trigger_price_type=trigger_price_type,
+            reduce_only=True,
+            client_order_id=None,
+        )
+
+        # Bundle a concise response for callers
+        return {"entry": entry, "tpsl": tpsl}
