@@ -533,7 +533,35 @@ class RiskManager:
             return
         self._enforce_ts[key] = now
 
+        # Grace period right after open: avoid enforcing while fills/position snapshots settle
+        try:
+            grace_sec = float(getattr(CONFIG, "min_margin_grace_sec", 1.2))
+        except Exception:
+            grace_sec = 1.2
+        try:
+            st = self._states.get(key)
+            if st and float(st.open_ts or 0) > 0:
+                if (time.time() - float(st.open_ts)) < grace_sec:
+                    emit_metric("min_margin_grace", {"instId": inst, "side": side, "since_open_sec": time.time() - float(st.open_ts)})
+                    return
+        except Exception:
+            pass
+
         action = (CONFIG.enforce_min_margin_action or "close").lower()
+        # If action is 'skip', do not close/top-up; only signal and return
+        if action == "skip":
+            try:
+                emit_metric("min_margin_skip", {
+                    "instId": inst,
+                    "side": side,
+                    "margin": float(pos_margin),
+                    "min": float(CONFIG.min_initial_margin_usd),
+                    "lev": float(lev),
+                })
+            except Exception:
+                pass
+            return
+
         dp = max(0, int(CONFIG.price_round_dp))
         try:
             emit_metric("min_margin_detect", {
