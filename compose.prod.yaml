@@ -18,7 +18,9 @@ services:
         max-file: "3"
 
   dashboard:
-    build: ./dashboard
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
     container_name: perp-dashboard
     restart: unless-stopped
     environment:
