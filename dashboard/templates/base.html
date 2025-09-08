@@ -6,8 +6,8 @@
     <title>Smart Scanner Dashboard</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/sse.js"></script>
-    <!-- Tailwind v3 CDN (enables arbitrary values like max-w-[18rem] and color opacity e.g. bg-blue-50/20) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Production CSS built with Tailwind CLI during image build -->
+    <link href="/static/build.css" rel="stylesheet">
     <style>
       /* Dark theme overrides */
       .dark body { background-color: #0f172a; color: #e5e7eb; }

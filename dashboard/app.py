@@ -12,6 +12,7 @@ import orjson
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
 
 METRICS_PATH = os.getenv("METRICS_PATH", "/data/scanner_metrics.jsonl")
@@ -20,6 +21,7 @@ MAX_BUF = int(os.getenv("DASHBOARD_MAX_BUF", "500"))
 
 app = FastAPI(title="Smart Scanner Dashboard")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 
 def _ago(ts: Optional[float]) -> str:
