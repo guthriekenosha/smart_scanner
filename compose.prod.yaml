@@ -18,9 +18,8 @@ services:
         max-file: "3"
 
   dashboard:
-    build:
-      context: ./dashboard
-      dockerfile: Dockerfile
+    image: ghcr.io/guthriekenosha/smart-scanner-webdash:latest
+    pull_policy: always
     container_name: perp-dashboard
     restart: unless-stopped
     environment:
