@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import os
 import time
+import asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import orjson
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -174,6 +175,11 @@ def partial_errors(request: Request):
     return templates.TemplateResponse("_errors_tbody.html", {"request": request, "errors": rows})
 
 
+@app.get("/healthz", response_class=PlainTextResponse)
+def healthz():
+    return PlainTextResponse("ok", media_type="text/plain")
+
+
 @app.get("/api/summary")
 def api_summary():
     evts = _read_events()
@@ -242,7 +248,48 @@ def partial_details(request: Request, bucket: str, ts: float):
     return templates.TemplateResponse("_details.html", {"request": request, "title": title, "body": body})
 
 
+@app.get("/stream")
+async def stream():
+    """
+    Simple SSE endpoint for live status. Emits:
+      - event: summary  (JSON payload with counts) whenever METRICS_PATH mtime increases
+      - event: ping     every few seconds to keep the connection warm
+    """
+    async def eventgen():
+        last_mtime = 0.0
+        ping_every = 8
+        tick = 0
+        while True:
+            try:
+                p = Path(METRICS_PATH)
+                mtime = p.stat().st_mtime if p.exists() else 0.0
+                if mtime > last_mtime:
+                    last_mtime = mtime
+                    evts = _read_events(8000)
+                    signals, orders, errors, positions_map = _partition(evts)
+                    payload = {
+                        "signals": len(signals),
+                        "orders": len(orders),
+                        "errors": len(errors),
+                        "last_signal_ts": float(signals[-1].get("ts")) if signals else 0.0,
+                        "last_order_ts": float(orders[-1].get("ts")) if orders else 0.0,
+                        "last_error_ts": float(errors[-1].get("ts")) if errors else 0.0,
+                        "server_now": time.time(),
+                    }
+                    data = orjson.dumps(payload).decode()
+                    yield f"event: summary\ndata: {data}\n\n"
+                else:
+                    # send periodic keep-alive pings
+                    if tick % ping_every == 0:
+                        yield "event: ping\ndata: ok\n\n"
+                    tick += 1
+            except Exception:
+                # keep connection alive even if something goes wrong momentarily
+                yield "event: ping\ndata: ok\n\n"
+            await asyncio.sleep(2)
+    return StreamingResponse(eventgen(), media_type="text/event-stream")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=int(os.getenv("PORT", "8081")), reload=False)
-
