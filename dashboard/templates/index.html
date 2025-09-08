@@ -9,11 +9,14 @@
     <link href="https://cdn.jsdelivr.net/npm/daisyui@2.51.6/dist/full.css" rel="stylesheet">
     <!-- HTMX (used by your partials) -->
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/sse.js"></script>
     <!-- Icons (optional, for nicer UI) -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
       body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
       .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(6px); }
+      th { position: sticky; top: 0; background: rgba(0,0,0,0.2); backdrop-filter: blur(4px); }
+      td.num { font-variant-numeric: tabular-nums; }
     </style>
   </head>
   <body class="bg-base-100 text-base-content">
@@ -162,6 +165,26 @@
       });
       // Icons
       if (window.lucide) { lucide.createIcons(); }
+
+      // Live SSE status (no full-page reloads)
+      try {
+        const es = new EventSource('/stream');
+        es.addEventListener('summary', (evt) => {
+          // when data arrives, ensure status dot shows green
+          const dot = document.getElementById('status-dot');
+          if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-green-500 inline-block';
+        });
+        es.addEventListener('ping', () => {
+          const dot = document.getElementById('status-dot');
+          if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-green-500 inline-block';
+        });
+        es.onerror = () => {
+          const dot = document.getElementById('status-dot');
+          if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block';
+        };
+      } catch (e) {
+        // noop; page still works with htmx polling
+      }
     </script>
   </body>
 </html>
