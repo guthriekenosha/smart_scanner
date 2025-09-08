@@ -129,7 +129,8 @@
       }
       document.addEventListener('DOMContentLoaded', function(){ setTimeout(applySavedFilters, 60); setInterval(autoResort, 5000); setInterval(refreshCounts, 5000); });
       function markLive(id){ const el=document.getElementById(id); if(!el) return; el.classList.add('live'); setTimeout(()=>el.classList.remove('live'), 2000); }
-      document.body.addEventListener('htmx:afterSwap', function(e){ try{ const t=e.target; if(!t || !t.id) return; if(t.id==='signals') markLive('sig_live'); else if(t.id==='orders') markLive('ord_live'); else if(t.id==='errors') markLive('err_live'); }catch(_){} });
+      // Attach to document to avoid null body before it exists
+      document.addEventListener('htmx:afterSwap', function(e){ try{ const t=e.target; if(!t || !t.id) return; if(t.id==='signals') markLive('sig_live'); else if(t.id==='orders') markLive('ord_live'); else if(t.id==='errors') markLive('err_live'); }catch(_){} });
     </script>
   </head>
   <body class="bg-gray-50 text-gray-900">
