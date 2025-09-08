@@ -65,11 +65,14 @@
             <th class="p-2 cursor-pointer" onclick="applySignalsSort('price')">Price</th>
           </tr>
         </thead>
-        <tbody id="signals"
-               hx-ext="sse" sse-connect="/stream" sse-swap="signal" hx-swap="beforeend">
-          {% for ev in signals %}
-            {% include "_row_signal.html" %}
-          {% endfor %}
+        <tbody id="signals" hx-ext="sse" sse-connect="/stream" sse-swap="signal" hx-swap="beforeend">
+          {% if signals and signals|length > 0 %}
+            {% for ev in signals %}
+              {% include "_row_signal.html" %}
+            {% endfor %}
+          {% else %}
+            <tr><td class="p-2 text-gray-500" colspan="7">No rows</td></tr>
+          {% endif %}
         </tbody>
       </table>
     </div>
@@ -99,9 +102,13 @@
           </tr>
         </thead>
         <tbody id="orders" hx-ext="sse" sse-connect="/stream" sse-swap="orders" hx-swap="beforeend">
-          {% for ev in orders %}
-            {% include "_row_order.html" %}
-          {% endfor %}
+          {% if orders and orders|length > 0 %}
+            {% for ev in orders %}
+              {% include "_row_order.html" %}
+            {% endfor %}
+          {% else %}
+            <tr><td class="p-2 text-gray-500" colspan="5">No rows</td></tr>
+          {% endif %}
         </tbody>
       </table>
     </div>
@@ -122,9 +129,13 @@
           </tr>
         </thead>
         <tbody id="errors" hx-ext="sse" sse-connect="/stream" sse-swap="errors" hx-swap="beforeend">
-          {% for ev in errors %}
-            {% include "_row_error.html" %}
-          {% endfor %}
+          {% if errors and errors|length > 0 %}
+            {% for ev in errors %}
+              {% include "_row_error.html" %}
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="4" class="p-2 text-gray-500">No errors</td></tr>
+          {% endif %}
         </tbody>
       </table>
     </div>
