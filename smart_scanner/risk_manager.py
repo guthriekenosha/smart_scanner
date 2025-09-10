@@ -570,9 +570,14 @@ class RiskManager:
         except Exception:
             pass
 
-        action = (CONFIG.enforce_min_margin_action or "close").lower()
-        # Treat common synonyms as "skip" (do nothing except log)
-        if action in ("skip", "allow", "none", "off", "disabled"):
+        raw_action = (CONFIG.enforce_min_margin_action or "close")
+        action = str(raw_action).lower()
+        # Map synonyms to explicit actions
+        # "allow", "increase", "upsize", and "topup" all mean: try to add size to meet the min margin
+        if action in ("allow", "increase", "upsize", "topup"):
+            action = "topup"
+        # Treat skip/disabled as no-op
+        if action in ("skip", "none", "off", "disabled"):
             try:
                 emit_metric("min_margin_skip", {
                     "instId": inst,
