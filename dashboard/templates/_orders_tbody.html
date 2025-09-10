@@ -1,0 +1,12 @@
+{% if orders and orders|length %}
+  {% for o in orders %}
+    <tr>
+      <td>{{ o.ts or o.time or "-" }}</td>
+      <td>{{ o.kind or o.type or "-" }}</td>
+      <td>{{ o.symbol or "-" }}</td>
+      <td>{{ o.msg or o.details or "-" }}</td>
+    </tr>
+  {% endfor %}
+{% else %}
+  <tr><td colspan="4" class="text-gray-500">No orders yet.</td></tr>
+{% endif %}

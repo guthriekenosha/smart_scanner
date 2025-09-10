@@ -285,7 +285,7 @@ class BlofinClient:
         q = {"instId": inst_id, "bar": bar}
         # 'limit' not documented; most clients support it, but it’s optional.
         if limit and isinstance(limit, int):
-            q["limit"] = limit
+            q["limit"] = str(limit)
         data = await self._request("GET", "/api/v1/market/candles", query=q, auth=False)
         return data.get("data") or data.get("result") or []
 

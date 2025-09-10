@@ -33,10 +33,8 @@ async def panic_flatten(
     Cancel all open orders and close all open positions (reduce-only market).
     If 'symbols' provided, limits the operation to those instruments.
     """
-    cancel_open = CONFIG.panic_cancel_open if cancel_open is None else cancel_open
-    close_positions = (
-        CONFIG.panic_close_positions if close_positions is None else close_positions
-    )
+    cancel_open = bool(CONFIG.panic_cancel_open) if cancel_open is None else bool(cancel_open)
+    close_positions = bool(CONFIG.panic_close_positions) if close_positions is None else bool(close_positions)
 
     allow_symbols: Optional[List[str]] = None
     if symbols is not None:
@@ -98,6 +96,8 @@ async def panic_flatten(
         for p in poss or []:
             try:
                 inst = p.get("instId") or p.get("symbol")
+                if not inst:
+                    continue
                 if not await _allow(inst):
                     continue
                 raw = p.get("positions") or p.get("pos") or p.get("position") or 0
@@ -109,7 +109,7 @@ async def panic_flatten(
                 mm = (p.get("marginMode") or CONFIG.trading_margin_mode)
                 size_s = f"{abs(sz):.6f}"
                 res3 = await client.place_order(
-                    inst,
+                    str(inst),
                     side,
                     "market",
                     size_s,

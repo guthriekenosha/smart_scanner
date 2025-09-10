@@ -1,0 +1,12 @@
+{% if errors and errors|length %}
+  {% for e in errors %}
+    <tr>
+      <td>{{ e.ts or "-" }}</td>
+      <td>{{ e.stage or "-" }}</td>
+      <td>{{ e.symbol or "-" }}</td>
+      <td class="text-red-400">{{ e.error or e.msg or "-" }}</td>
+    </tr>
+  {% endfor %}
+{% else %}
+  <tr><td colspan="4" class="text-gray-500">No errors 🎉</td></tr>
+{% endif %}

@@ -2,7 +2,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 import math
-from typing import Dict, Optional
+from typing import Dict, Optional, Mapping, Any
 import asyncio
 
 from .config import CONFIG
@@ -92,10 +92,15 @@ class AutoTrader:
         if s.prob < self.min_prob:
             return False, "min_prob"
         # qVol gate using attached meta (if present) else allow
-        try:
-            qv = float(s.meta.get("features", {}).get("qvol", 0.0)) if isinstance(s.meta, dict) else 0.0
-        except Exception:
-            qv = 0.0
+        qv = 0.0
+        if isinstance(s.meta, Mapping):
+            features = s.meta.get("features")
+            if isinstance(features, Mapping):
+                val = features.get("qvol")
+                try:
+                    qv = float(val) if val is not None else 0.0
+                except (TypeError, ValueError):
+                    qv = 0.0
         if self.min_qvol > 0 and qv > 0 and qv < self.min_qvol:
             return False, "min_qvol"
         # per-symbol cooldown
@@ -125,7 +130,7 @@ class AutoTrader:
             return False, "max_exposure"
         return True, "ok"
 
-    def _plan_risk(self, s: Signal) -> Dict[str, object]:
+    def _plan_risk(self, s: Signal) -> Dict[str, Any]:
         """
         Decide margin_mode, leverage, and notional multiplier based on signal features.
         Returns dict: {margin_mode:str, leverage:str, notional_usd:float}
@@ -138,10 +143,14 @@ class AutoTrader:
         if CONFIG.enable_smart_risk:
             # Inputs
             atr_pct = None
-            try:
-                atr_pct = float(s.meta.get("features", {}).get("atr14_pct")) if isinstance(s.meta, dict) else None
-            except Exception:
-                atr_pct = None
+            if isinstance(s.meta, Mapping):
+                features = s.meta.get("features")
+                if isinstance(features, Mapping):
+                    v_atr = features.get("atr14_pct")
+                    try:
+                        atr_pct = float(v_atr) if v_atr is not None else None
+                    except (TypeError, ValueError):
+                        atr_pct = None
             atr_pct = atr_pct if (atr_pct is not None and atr_pct > 0) else CONFIG.atr_ref_pct
             # confidence ~ blend of score and prob (0..1)
             score_norm = max(0.0, min(1.0, (float(s.score) - 3.0) / max(1e-9, (CONFIG.score_max - 3.0))))
@@ -149,8 +158,10 @@ class AutoTrader:
             conf = 0.5 * score_norm + 0.5 * max(0.0, min(1.0, prob))
             regime = 1.0
             try:
-                regime = float(s.meta.get("regime_mult", 1.0))
-            except Exception:
+                if isinstance(s.meta, Mapping):
+                    v_reg = s.meta.get("regime_mult", 1.0)
+                    regime = float(v_reg)
+            except (TypeError, ValueError):
                 pass
 
             # Leverage: increase with confidence/regime, decrease with vol
@@ -240,14 +251,14 @@ class AutoTrader:
                 "score": s.score,
                 "prob": s.prob,
                 "ev": s.ev,
-                "notional": float(plan["notional_usd"]) if plan else self.notional,
+                "notional": float(plan.get("notional_usd", self.notional)) if isinstance(plan, dict) else float(self.notional),
                 "paper": self.paper,
             })
         except Exception:
             pass
         return pos
 
-    async def _place_real_market_async(self, s: Signal, client: BlofinClient, plan: Dict[str, object] | None = None) -> None:
+    async def _place_real_market_async(self, s: Signal, client: BlofinClient, plan: Dict[str, Any] | None = None) -> None: # type: ignore[reportGeneralTypeIssues]
         async with self._order_lock:
             # NOTE: Serialize order placement; body currently runs outside the lock.
             # If needed, wrap the remainder of this method inside this lock.
@@ -910,10 +921,14 @@ class AutoTrader:
                 if CONFIG.enable_smart_tpsl and CONFIG.tpsl_mode in ("atr", "level_atr"):
                     # Use ATR% from signal features if available
                     atr_pct = None
-                    try:
-                        atr_pct = float(s.meta.get("features", {}).get("atr14_pct"))
-                    except Exception:
-                        atr_pct = None
+                    if isinstance(s.meta, Mapping):
+                        features = s.meta.get("features")
+                        if isinstance(features, Mapping):
+                            v_atr = features.get("atr14_pct")
+                            try:
+                                atr_pct = float(v_atr) if v_atr is not None else None
+                            except (TypeError, ValueError):
+                                atr_pct = None
                     if atr_pct is None or atr_pct <= 0:
                         # fallback to bps if ATR missing
                         bps_tp = CONFIG.tp_bps / 10000.0
@@ -929,7 +944,13 @@ class AutoTrader:
                         r_mult = CONFIG.atr_sl_mult
                         try:
                             if CONFIG.regime_scale_risk:
-                                rm = float(s.meta.get("regime_mult", 1.0))
+                                rm = 1.0
+                                if isinstance(s.meta, Mapping):
+                                    try:
+                                        rm_val = s.meta.get("regime_mult", 1.0)
+                                        rm = float(rm_val)
+                                    except (TypeError, ValueError):
+                                        rm = 1.0
                                 r_mult *= max(0.7, min(1.3, rm))
                         except Exception:
                             pass

@@ -1,6 +1,19 @@
+# compose.prod.yaml
+name: smart_scanner
+
 services:
   scanner:
     image: ghcr.io/guthriekenosha/smart_scanner:latest
+    container_name: perp-bot
+    restart: unless-stopped
+    env_file:
+      - ./smart_scanner/.env
+      - ./smart_scanner/.env.local
+    environment:
+      - ENV_FILE=/app/smart_scanner/.env
+    volumes:
+      - perpdata:/data
+    command: ["python", "-m", "smart_scanner.scanner_runner", "--loop"]
 
   dashboard:
     image: ghcr.io/guthriekenosha/smart-scanner-webdash:latest
@@ -12,3 +25,8 @@ services:
       - perpdata:/data:ro
     ports:
       - "8081:8081"
+
+volumes:
+  perpdata:
+    external: true
+    name: perpdata

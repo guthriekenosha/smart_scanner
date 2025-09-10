@@ -15,7 +15,7 @@ Notes:
 import asyncio
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, Union, cast
 
 from .config import CONFIG
 from .metrics import emit as emit_metric
@@ -43,7 +43,7 @@ class PosState:
 
 class RiskManager:
     def __init__(self):
-        self._ws: Optional[BlofinPrivateWS] = None
+        self._ws: Optional[Any] = None  # runtime type; ws class may be None when optional
         self._task: Optional[asyncio.Task] = None
         self._states: Dict[str, PosState] = {}
         self._enforce_ts: Dict[str, float] = {}
@@ -61,15 +61,18 @@ class RiskManager:
             passphrase=CONFIG.api_passphrase,
             demo=("demo" in CONFIG.base_url)
         )
-        self._ws.on_position = self._on_position
-        self._ws.subscribe_positions()
+        ws = self._ws
+        if ws is None:
+            return
+        ws.on_position = self._on_position  # type: ignore[attr-defined]
+        ws.subscribe_positions()             # type: ignore[attr-defined]
         # Also watch orders stream to log TP/SL closes
         try:
-            self._ws.on_order = self._on_order  # type: ignore[attr-defined]
-            self._ws.subscribe_orders()
+            ws.on_order = self._on_order      # type: ignore[attr-defined]
+            ws.subscribe_orders()             # type: ignore[attr-defined]
         except Exception:
             pass
-        self._task = asyncio.create_task(self._ws.run(), name="risk_manager_ws")
+        self._task = asyncio.create_task(ws.run(), name="risk_manager_ws")  # type: ignore[attr-defined]
 
     async def stop(self):
         if self._ws:
@@ -509,11 +512,17 @@ class RiskManager:
                     try:
                         if base_per_size is None:
                             for k in ("contractSize", "multiplier", "qtyMultiplier"):
-                                if it.get(k) is not None:
-                                    vv = float(it.get(k))
-                                    if vv > 0:
-                                        base_per_size = vv
-                                        break
+                                val = it.get(k)
+                                if val is None:
+                                    continue
+                                try:
+                                    if isinstance(val, (int, float, str)) and str(val) != "":
+                                        vv = float(val)
+                                        if vv > 0:
+                                            base_per_size = vv
+                                            break
+                                except (TypeError, ValueError):
+                                    continue
                     except Exception:
                         pass
                     break
@@ -580,6 +589,9 @@ class RiskManager:
 
         async with BlofinClient() as client:
             step, min_sz, qps, bps = await self._instrument_specs(client, inst)
+            # Defaults to satisfy type checker even if balance fetch fails
+            avail: Optional[float] = None
+            safety: float = 0.0
 
             def _adapt(q: float) -> float:
                 adj = max(0.0, float(q))
@@ -609,28 +621,27 @@ class RiskManager:
                             details = bal.get("details") or bal.get("data") or []
                             if isinstance(details, dict):
                                 details = [details]
-                            avail = None
                             for d in details:
                                 cur = (d.get("ccy") or d.get("currency") or "").upper()
                                 if cur and cur != "USDT":
                                     continue
                                 for k in ("available", "availableUsd", "availableEquity", "cashAvailable", "availEq"):
-                                    v = d.get(k)
-                                    if v is not None:
+                                    val = d.get(k)
+                                    if isinstance(val, (int, float, str)) and str(val) != "":
                                         try:
-                                            avail = float(v)
+                                            avail = float(val)
                                             break
-                                        except Exception:
-                                            pass
+                                        except (TypeError, ValueError):
+                                            continue
                                 if avail is not None:
                                     break
                         except Exception:
-                            avail = None
-                        safety = CONFIG.margin_safety_bps / 10000.0
+                            pass
+                        safety = float(getattr(CONFIG, "margin_safety_bps", 0.0)) / 10000.0
                     req_notional = float(add_qty) * (float(qps) if qps is not None else float(mark) * (float(bps) if bps is not None else 1.0))
                     req = req_notional / max(float(lev), 1e-9)
                     if avail is not None and avail < req * (1.0 + safety):
-                            ok_bal = False
+                        ok_bal = False
                     if not ok_bal:
                         emit_metric("min_margin_enforce_skip", {"instId": inst, "side": side, "reason": "insufficient_balance"})
                         return

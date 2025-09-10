@@ -1,0 +1,15 @@
+<div id="summary" class="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
+  <div class="card bg-base-200 shadow"><div class="card-body">
+    <h2 class="card-title">Signals</h2><div class="text-2xl font-semibold">{{ summary.signals or 0 }}</div>
+  </div></div>
+  <div class="card bg-base-200 shadow"><div class="card-body">
+    <h2 class="card-title">Orders</h2><div class="text-2xl font-semibold">{{ summary.orders or 0 }}</div>
+  </div></div>
+  <div class="card bg-base-200 shadow"><div class="card-body">
+    <h2 class="card-title">Errors</h2><div class="text-2xl font-semibold">{{ summary.errors or 0 }}</div>
+  </div></div>
+  <div class="card bg-base-200 shadow"><div class="card-body">
+    <h2 class="card-title">Last Update</h2>
+    <div class="text-2xl font-semibold">{{ "%.0f"|format(summary.server_now or 0) }}</div>
+  </div></div>
+</div>

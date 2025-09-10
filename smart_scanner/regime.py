@@ -12,10 +12,12 @@ Smarter extensions implemented (backwards compatible):
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Literal, Dict, Any, List, Optional
+from typing import Literal, Dict, Any, List, Optional, Union
 import numpy as np
 
 from .indicators import ema
+# Accept both Python floats and NumPy floating scalars for helpers
+NumberLike = Union[float, np.floating[Any]]
 
 RegimeKind = Literal["bull", "bear", "chop"]
 
@@ -33,10 +35,9 @@ _last_score: float = 0.0
 _last_kind: RegimeKind = "chop"
 
 
-def _tanh_clip(x: float, scale: float = 1.0) -> float:
+def _tanh_clip(x: NumberLike, scale: float = 1.0) -> float:
     import math
-
-    return math.tanh(x * scale)
+    return math.tanh(float(x) * float(scale))
 
 
 def detect_regime(
@@ -69,17 +70,35 @@ def detect_regime(
 
     ef = ema(arr, ema_fast)
     es = ema(arr, ema_slow)
-    slope = (ef[-1] - ef[-5]) / max(ef[-5], 1e-9)
-    trend = _tanh_clip(slope * 6.0) + (_tanh_clip((ef[-1] / max(es[-1], 1e-9)) - 1.0, 4.0)) * 0.5
+    ef_last = float(ef[-1])
+    ef_prev5 = float(ef[-5])
+    es_last = float(es[-1])
+
+    denom = ef_prev5 if ef_prev5 != 0.0 else 1e-9
+    slope = (ef_last - ef_prev5) / max(denom, 1e-9)
+    trend = _tanh_clip(slope * 6.0) + (_tanh_clip((ef_last / max(es_last, 1e-9)) - 1.0, 4.0)) * 0.5
 
     # Realized vol ratio (short vs long) to avoid absolute-scale dependency
     rets = np.diff(np.log(arr))
-    vol_short = np.std(rets[-96:]) if len(rets) >= 96 else np.std(rets)
-    vol_long = np.std(rets[-400:]) if len(rets) >= 400 else max(np.std(rets), 1e-9)
+    if len(rets) >= 96:
+        vol_short = float(np.std(rets[-96:]))
+    else:
+        vol_short = float(np.std(rets))
+
+    if len(rets) >= 400:
+        vol_long = float(np.std(rets[-400:]))
+    else:
+        base_long = float(np.std(rets))
+        vol_long = max(base_long, 1e-9)
+
     vol_ratio = vol_short / max(vol_long, 1e-9)
     # Higher vol → more negative for risk
     vol_term = -_tanh_clip((vol_ratio - 1.0) * 1.5)
-    vol_ann = (vol_short * (96 * 365) ** 0.5) if len(rets) >= 96 else (np.std(rets) * (len(rets) * 365) ** 0.5)
+
+    if len(rets) >= 96:
+        vol_ann = float(vol_short * (96 * 365) ** 0.5)
+    else:
+        vol_ann = float(float(np.std(rets)) * (len(rets) * 365) ** 0.5)
 
     # Optional context
     breadth_term = 0.0
@@ -115,7 +134,7 @@ def detect_regime(
         kind = "chop"
 
     # Map score to suggested risk multiplier ~ [0.7, 1.1]
-    risk_mult = float(0.9 + 0.2 * max(-1.0, min(1.0, score)))
+    risk_mult = float(0.9 + 0.2 * max(-1.0, min(1.0, float(score))))
 
     _last_score, _last_kind = score, kind
     return RegimeState(kind=kind, vol_annualized=float(vol_ann), ema_fast_slope=float(slope), score=score, risk_mult=risk_mult)

@@ -265,7 +265,7 @@ async def _fetch_candles_chunk(
         last_update_ts = 0.0
 
         async def _one(sym: str):
-            nonlocal done
+            nonlocal done, last_update_ts
             async with sem:
                 try:
                     rows = await client.get_candles(
@@ -424,10 +424,12 @@ async def _get_universe(client: BlofinClient | None = None) -> Tuple[List[str], 
 async def scan_once(client: BlofinClient | None = None) -> List[Signal]:
     # Allow caller to pass a shared client to avoid reopening sessions each cycle
     owns_client = client is None
+    ctx: BlofinClient | None = None
+    client_cm: Any | None = None
     if owns_client:
         ctx = BlofinClient()
     try:
-        if owns_client:
+        if owns_client and ctx is not None:
             client_cm = ctx
             client = await client_cm.__aenter__()
         assert client is not None
@@ -688,7 +690,7 @@ async def scan_once(client: BlofinClient | None = None) -> List[Signal]:
 
         return final
     finally:
-        if owns_client:
+        if client_cm is not None:
             try:
                 await client_cm.__aexit__(None, None, None)
             except Exception:

@@ -6,7 +6,7 @@ Enable via env PRETTY=1 (Config.pretty).
 """
 from __future__ import annotations
 
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, cast
 
 try:
     from rich.console import Console
@@ -25,7 +25,7 @@ except Exception:  # pragma: no cover
 class PrettyPrinter:
     def __init__(self) -> None:
         self.enabled = _RICH_OK
-        self._console: Optional[Console] = Console() if _RICH_OK else None
+        self._console: Optional[Any] = Console() if _RICH_OK else None
 
     def _print(self, s: str) -> None:
         if self._console is None:
@@ -40,7 +40,10 @@ class PrettyPrinter:
                 f"[cfg] timeframes={list(cfg.timeframes)} min_score={cfg.min_score} top_symbols={cfg.top_symbols_by_quote_vol}"
             )
             return
-        t = Table(title="Scanner Config", box=box.SIMPLE_HEAVY)
+        # Rich-only path (satisfy type checker)
+        RTable = cast(Any, Table)
+        RBox = cast(Any, box)
+        t = RTable(title="Scanner Config", box=RBox.SIMPLE_HEAVY)
         t.add_column("Key", style="bold cyan")
         t.add_column("Value", style="white")
         t.add_row("Timeframes", ", ".join(map(str, cfg.timeframes)))
@@ -61,8 +64,10 @@ class PrettyPrinter:
             sample_items = ", ".join(list(islice(uni, sample)))
             print(f"[liquidity] Universe (active): {len(uni)} (example: {sample_items}) [source={source}]")
             return
+        RTable = cast(Any, Table)
+        RBox = cast(Any, box)
         title = f"Active Universe: {len(uni)} symbols [source={source}]"
-        t = Table(title=title, box=box.MINIMAL_HEAVY_HEAD)
+        t = RTable(title=title, box=RBox.MINIMAL_HEAVY_HEAD)
         t.add_column("#", justify="right", style="dim")
         t.add_column("Symbol", style="bold")
         for i, sym in enumerate(uni[:sample], 1):
@@ -80,7 +85,9 @@ class PrettyPrinter:
                     f"[{side_tag}] {s.symbol} {s.timeframe} | Score {s.score:.2f} | P {getattr(s,'prob',0.0)*100:.1f}% | EV {getattr(s,'ev',0.0):.2f} | {comps} | price {s.price:.6g}"
                 )
             return
-        t = Table(title="Signals", box=box.SIMPLE_HEAVY)
+        RTable = cast(Any, Table)
+        RBox = cast(Any, box)
+        t = RTable(title="Signals", box=RBox.SIMPLE_HEAVY)
         t.add_column("Symbol", style="bold")
         t.add_column("TF", style="cyan")
         t.add_column("Side")
@@ -128,4 +135,3 @@ class PrettyPrinter:
 
 # Singleton printer
 PR = PrettyPrinter()
-

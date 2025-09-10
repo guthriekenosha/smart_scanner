@@ -6,7 +6,7 @@ All numbers are sane defaults; override via environment variables as needed.
 from __future__ import annotations
 import os
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple
 
 
 # --- Load .env early so os.getenv sees the values ---------------------------------
@@ -71,11 +71,11 @@ _load_env()
 # -----------------------------------------------------------------------------------
 
 
-def _get_list(env: str, default: List[str]) -> List[str]:
+def _get_list(env: str, default: List[str]) -> Tuple[str, ...]:
     raw = os.getenv(env, "")
     if not raw.strip():
-        return default
-    return [s.strip() for s in raw.split(",") if s.strip()]
+        return tuple(default)
+    return tuple(s.strip() for s in raw.split(",") if s.strip())
 
 
 @dataclass(frozen=True)
@@ -88,13 +88,13 @@ class Config:
     api_passphrase: str = os.getenv("BLOFIN_API_PASSPHRASE", os.getenv("PASSPHRASE", ""))
 
     # Scanner
-    timeframes: List[str] = tuple(
+    timeframes: Tuple[str, ...] = tuple(
         _get_list("SCAN_TIMEFRAMES", ["5m", "15m", "1H", "4H"])
     )
     candles_limit: int = int(os.getenv("CANDLES_LIMIT", "200"))
     top_symbols_by_quote_vol: int = int(os.getenv("TOP_SYMBOLS", "80"))
-    include_symbols: List[str] = tuple(_get_list("INCLUDE_SYMBOLS", []))
-    exclude_symbols: List[str] = tuple(_get_list("EXCLUDE_SYMBOLS", []))
+    include_symbols: Tuple[str, ...] = tuple(_get_list("INCLUDE_SYMBOLS", []))
+    exclude_symbols: Tuple[str, ...] = tuple(_get_list("EXCLUDE_SYMBOLS", []))
 
     # Liquidity/quality gates (used for both REST and WS universes)
     min_quote_vol_usdt: float = float(os.getenv("MIN_QUOTE_VOL_USDT", "150000"))
@@ -171,7 +171,7 @@ class Config:
     # Universe persistence & fallback
     universe_cache_path: str = os.getenv("UNIVERSE_CACHE_PATH", ".universe_cache.json")
     universe_ttl_sec: int = int(os.getenv("UNIVERSE_TTL_SEC", "900"))  # 15 minutes
-    fallback_universe: List[str] = tuple(
+    fallback_universe: Tuple[str, ...] = tuple(
         _get_list(
             "FALLBACK_UNIVERSE",
             [
@@ -227,7 +227,7 @@ class Config:
 
     # Universe shaping
     swap_only: int = int(os.getenv("SWAP_ONLY", "0"))  # 1=prefer SWAP-only in WS universe
-    exclude_patterns: List[str] = tuple(
+    exclude_patterns: Tuple[str, ...] = tuple(
         _get_list(
             "EXCLUDE_PATTERNS",
             [
@@ -267,7 +267,7 @@ class Config:
 
     # Blue-chip only mode
     bluechip_only: int = int(os.getenv("BLUECHIP_ONLY", "0"))
-    bluechip_bases: List[str] = tuple(
+    bluechip_bases: Tuple[str, ...] = tuple(
         _get_list(
             "BLUECHIP_BASES",
             [

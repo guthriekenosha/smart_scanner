@@ -1,0 +1,15 @@
+{% if positions and positions|length %}
+  {% for p in positions %}
+    <tr>
+      <td>{{ p.inst or p.instrument or "-" }}</td>
+      <td>{{ p.side or "-" }}</td>
+      <td>{{ p.size or 0 }}</td>
+      <td>{{ p.entry or "-" }}</td>
+      <td>{{ p.mark or "-" }}</td>
+      <td>{{ p.sl or "-" }}</td>
+      <td>{{ p.u_pnl or p.pnl or 0 }}</td>
+    </tr>
+  {% endfor %}
+{% else %}
+  <tr><td colspan="7" class="text-gray-500">No open positions.</td></tr>
+{% endif %}
