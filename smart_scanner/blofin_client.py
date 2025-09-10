@@ -2,6 +2,15 @@
 import asyncio, aiohttp, base64, hashlib, hmac, json, time, uuid
 from typing import Any, Dict, List, Optional, Tuple
 from .config import CONFIG
+import requests
+
+session = requests.Session()
+session.headers.update(
+    {
+        "User-Agent": "Mozilla/5.0 (compatible; SmartScanner/1.0)",
+        "Accept": "application/json",
+    }
+)
 
 
 def _normalize_bar(bar: str) -> str:
