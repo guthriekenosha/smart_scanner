@@ -14,6 +14,7 @@ Notes:
 
 import asyncio
 import time
+import math  # used in rounding/clamps
 from dataclasses import dataclass
 from typing import Dict, Optional, Any, Union, cast
 
@@ -218,6 +219,14 @@ class RiskManager:
         if not st:
             return
 
+        # Small grace after open to avoid instantly re-placing SL or moving BE
+        try:
+            trail_grace = float(getattr(CONFIG, "trail_grace_sec", 1.5))
+        except Exception:
+            trail_grace = 1.5
+        if st.open_ts and (time.time() - float(st.open_ts)) < trail_grace:
+            return
+
         # compute desired SL based on rules
         entry = st.entry
         side = st.side
@@ -228,7 +237,12 @@ class RiskManager:
             R = abs(entry - sl_active_px)
         if not R or R <= 0:
             # fallback to ATR ref
-            R = max(entry, 1e-9) * CONFIG.atr_ref_pct * CONFIG.atr_sl_mult
+            atr_ref = float(CONFIG.atr_ref_pct)
+            # Optional clamp if provided in config
+            low = float(getattr(CONFIG, "atr_tpsl_min_pct", atr_ref))
+            high = float(getattr(CONFIG, "atr_tpsl_max_pct", atr_ref))
+            atr_ref = max(low, min(high, atr_ref))
+            R = max(entry, 1e-9) * atr_ref * float(CONFIG.atr_sl_mult)
 
         # mark for computation: use high/low water
         if side == "long":
@@ -374,8 +388,8 @@ class RiskManager:
                     pass
                 elif ps and ps != side:
                     continue
-            # If both tp and sl present in one tpsl, prefer not to cancel to avoid nuking TP
-            if tpp is not None:
+            # If both tp and sl present in one tpsl, do not cancel to avoid removing TP
+            if tpp is not None and slp is not None:
                 continue
             tpsl_id = it.get("tpslId") or it.get("algoId")
             if tpsl_id:
@@ -557,8 +571,8 @@ class RiskManager:
             pass
 
         action = (CONFIG.enforce_min_margin_action or "close").lower()
-        # If action is 'skip', do not close/top-up; only signal and return
-        if action == "skip":
+        # Treat common synonyms as "skip" (do nothing except log)
+        if action in ("skip", "allow", "none", "off", "disabled"):
             try:
                 emit_metric("min_margin_skip", {
                     "instId": inst,
