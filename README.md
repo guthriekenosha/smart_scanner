@@ -20,6 +20,21 @@ Quickstart
 ‑ Run a simple built‑in bot (EMA cross):
   - `python -m smart_scanner.simple_bot --loop`
 
+Learning (Calibrate Probabilities)
+- The scanner logs `signal` and later `label` rows to `scanner_metrics.jsonl`. You can learn a probability calibration from these histories and feed it back into the live signal engine for better `prob` estimates.
+- Train from metrics and write `calibration.json`:
+  - `python -m smart_scanner.learn calibrate --metrics scanner_metrics.jsonl --out calibration.json --horizon 900`
+- The engine automatically uses `calibration.json` if present on startup. Restart the scanner after training to load the new calibration.
+- Online learning already updates strategy weights via EXP3 when labels mature; weights are persisted to `bandit_state.json` and reloaded on start.
+
+Threshold Tuning & Lift Report
+- Tune `TRADE_MIN_PROB` and `TRADE_MIN_SCORE` against your labeled history to maximize an objective (avg realized return by default):
+  - `python -m smart_scanner.learn tune --metrics scanner_metrics.jsonl --horizon 900 --objective ev --min-trades 50`
+  - Outputs recommended thresholds and stats at that operating point.
+- Quantify lift after calibration vs the built-in baseline:
+  - `python -m smart_scanner.learn report --metrics scanner_metrics.jsonl --horizon 900`
+  - Prints AUC/Brier/LogLoss changes and top-decile winrate/avg-return lift.
+
 Configuration
 - Env file: `smart_scanner/.env` (or export vars). If `python-dotenv` is installed, it’s auto‑loaded.
 - Key toggles:
