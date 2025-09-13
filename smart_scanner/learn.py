@@ -34,6 +34,7 @@ from typing import Dict, Any, Iterable, List, Tuple, Optional
 import numpy as np
 
 from .config import CONFIG
+from .blofin_client import BlofinClient
 
 
 # ----------------------------- IO helpers ------------------------------------
@@ -601,6 +602,160 @@ def _cmd_tune(args: argparse.Namespace) -> None:
     )
 
 
+# ------------------------ Backfill labels (offline) --------------------------
+
+
+async def _price_at_or_before(client: BlofinClient, symbol: str, target_ts: int) -> Tuple[Optional[int], Optional[float]]:
+    try:
+        rows = await client.get_candles(symbol, "1m", limit=300)
+    except Exception:
+        rows = []
+    if not rows:
+        return None, None
+    try:
+        if int(rows[1][0]) < int(rows[0][0]):
+            rows = list(reversed(rows))
+    except Exception:
+        pass
+    best_ts = None
+    best_close = None
+    t_ms = int(target_ts) * 1000
+    for r in rows:
+        try:
+            ts = int(r[0])
+            if ts <= t_ms:
+                best_ts, best_close = ts, float(r[4])
+            else:
+                break
+        except Exception:
+            continue
+    if best_ts is None:
+        try:
+            best_ts, best_close = int(rows[0][0]), float(rows[0][4])
+        except Exception:
+            return None, None
+    return best_ts // 1000, best_close
+
+
+def _read_existing_labels(metrics_path: str) -> set[Tuple[str, str, str, int, int]]:
+    seen: set[Tuple[str, str, str, int, int]] = set()
+    for rec in _read_jsonl(metrics_path):
+        kind = rec.get("kind") or rec.get("event")
+        if kind != "label":
+            continue
+        try:
+            sym = str(rec.get("symbol"))
+            tf = str(rec.get("timeframe"))
+            side = str(rec.get("side"))
+            ts = int(rec.get("created_ts") or 0)
+            hz = int(rec.get("horizon_sec") or 0)
+            if sym and tf and side and ts and hz:
+                seen.add((sym, tf, side, ts, hz))
+        except Exception:
+            continue
+    return seen
+
+
+async def _cmd_backfill_async(args: argparse.Namespace) -> None:
+    mpath = args.metrics or CONFIG.metrics_path
+    horizon = int(args.horizon)
+    limit = int(args.limit) if args.limit else 0
+    dry = bool(args.dry_run)
+    now = int(__import__("time").time())
+
+    seen = _read_existing_labels(mpath)
+    todo: List[Dict[str, Any]] = []
+    for rec in _read_jsonl(mpath):
+        kind = rec.get("kind") or rec.get("event")
+        if kind != "signal":
+            continue
+        try:
+            sym = str(rec.get("symbol"))
+            tf = str(rec.get("timeframe"))
+            side = str(rec.get("side"))
+            ts = int(rec.get("created_ts") or 0)
+            price = float(rec.get("price"))
+            comps = rec.get("components") or []
+            if not isinstance(comps, list):
+                comps = []
+            score = float(rec.get("score", 0.0))
+            prob = float(rec.get("prob", 0.5))
+            ev = float(rec.get("ev", 0.0))
+            meta = rec.get("meta") or {}
+        except Exception:
+            continue
+        target_ts = ts + horizon
+        if target_ts > now:
+            continue  # not matured
+        key = (sym, tf, side, ts, horizon)
+        if key in seen:
+            continue
+        todo.append({
+            "symbol": sym,
+            "timeframe": tf,
+            "side": side,
+            "created_ts": ts,
+            "entry_price": price,
+            "components": comps,
+            "score": score,
+            "prob": prob,
+            "ev": ev,
+            "meta": meta,
+            "target_ts": target_ts,
+        })
+        if limit and len(todo) >= limit:
+            break
+
+    if not todo:
+        print("[backfill] Nothing to do (no matured signals without labels).")
+        return
+    print(f"[backfill] Candidates: {len(todo)} horizon={horizon}s")
+
+    # Fetch prices and emit labels
+    wrote = 0
+    async with BlofinClient() as client:
+        for it in todo:
+            try:
+                end_ts, end_price = await _price_at_or_before(client, it["symbol"], it["target_ts"])
+            except Exception:
+                end_ts, end_price = None, None
+            if end_price is None or end_ts is None:
+                continue
+            ret = (float(end_price) - float(it["entry_price"])) / max(float(it["entry_price"]), 1e-9)
+            if it["side"] == "sell":
+                ret = -ret
+            payload = {
+                "symbol": it["symbol"],
+                "side": it["side"],
+                "timeframe": it["timeframe"],
+                "created_ts": int(it["created_ts"]),
+                "entry_price": float(it["entry_price"]),
+                "horizon_sec": int(horizon),
+                "end_ts": int(end_ts),
+                "end_price": float(end_price),
+                "ret": float(ret),
+                "components": it["components"],
+                "score": float(it["score"]),
+                "prob": float(it["prob"]),
+                "ev": float(it["ev"]),
+                "meta": {"regime_mult": float((it.get("meta") or {}).get("regime_mult", 0.0))},
+            }
+            if not dry:
+                try:
+                    with open(mpath, "a") as f:
+                        f.write(json.dumps({"ts": now, "kind": "label", **payload}) + "\n")
+                    wrote += 1
+                except Exception:
+                    pass
+    print(f"[backfill] Wrote {wrote} labels to {mpath}")
+
+
+def _cmd_backfill(args: argparse.Namespace) -> None:
+    import asyncio as _aio
+
+    _aio.run(_cmd_backfill_async(args))
+
+
 def main():
     p = argparse.ArgumentParser(description="Learning utilities for Smart Scanner")
     sub = p.add_subparsers(dest="cmd")
@@ -642,6 +797,13 @@ def main():
     tn.add_argument("--s-max", type=float, help="Optional score max for grid (else data-driven)")
     tn.add_argument("--s-steps", type=int, default=24)
     tn.set_defaults(func=_cmd_tune)
+
+    bf = sub.add_parser("backfill", help="Backfill label rows into metrics for matured signals")
+    bf.add_argument("--metrics", type=str, default=CONFIG.metrics_path)
+    bf.add_argument("--horizon", type=int, default=900)
+    bf.add_argument("--limit", type=int, default=0, help="Max signals to backfill (0=all)")
+    bf.add_argument("--dry-run", action="store_true")
+    bf.set_defaults(func=_cmd_backfill)
 
     args = p.parse_args()
     if not args.cmd:

@@ -103,6 +103,8 @@ class Config:
         os.getenv("SIGNAL_MIN_QVOL_USDT", os.getenv("MIN_QUOTE_VOL_USDT", "0"))
     )
     min_last_price: float = float(os.getenv("MIN_LAST_PRICE", "0.005"))
+    # Optional: exclude very high-priced instruments (0 = disabled)
+    max_last_price: float = float(os.getenv("MAX_LAST_PRICE", "0"))
 
     # Concurrency / rate limiting
     rest_concurrency: int = int(os.getenv("REST_CONCURRENCY", "8"))

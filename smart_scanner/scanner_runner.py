@@ -199,6 +199,8 @@ def _select_universe(
         qv = _get_quote_vol(t)
         if last < CONFIG.min_last_price:
             continue
+        if CONFIG.max_last_price > 0 and last > CONFIG.max_last_price:
+            continue
         if qv < CONFIG.min_quote_vol_usdt:
             continue
         items.append((inst, qv))
@@ -591,6 +593,13 @@ async def scan_once(client: BlofinClient | None = None) -> List[Signal]:
                             if t is not None:
                                 qv, _ = _qvol_with_key(t)
                                 if qv < CONFIG.signal_min_qvol_usdt:
+                                    continue
+                        # Optional max price gate at signal time
+                        if CONFIG.max_last_price > 0:
+                            t = _ws_uni.get_raw_ticker(sym)
+                            if t is not None:
+                                last_px = _get_last_price(t)
+                                if last_px > CONFIG.max_last_price:
                                     continue
                     except Exception:
                         pass

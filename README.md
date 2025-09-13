@@ -35,6 +35,12 @@ Threshold Tuning & Lift Report
   - `python -m smart_scanner.learn report --metrics scanner_metrics.jsonl --horizon 900`
   - Prints AUC/Brier/LogLoss changes and top-decile winrate/avg-return lift.
 
+No Labels Yet? Backfill Them
+- If you didn’t keep the event loop running long enough to produce `label` rows, you can backfill labels offline from current market data:
+  - `python -m smart_scanner.learn backfill --metrics scanner_metrics.jsonl --horizon 900 --limit 1000`
+- This scans the metrics file for matured `signal` entries missing a label at the chosen horizon, fetches 1m candles, computes returns, and appends `label` rows to the same file.
+- Then run `calibrate`, `report`, and `tune` using the same `--metrics` path.
+
 Configuration
 - Env file: `smart_scanner/.env` (or export vars). If `python-dotenv` is installed, it’s auto‑loaded.
 - Key toggles:
@@ -159,6 +165,14 @@ Pretty Terminal Output
   - Config summary (on startup)
   - Universe summary (when `PRINT_LIQUIDITY_DEBUG=1`)
   - Signals table (batch view in `--loop` mode when not printing JSON lines)
+
+PnL Report (Daily)
+- Compute daily realized PnL from your JSONL metrics:
+  - `python -m smart_scanner.pnl_report --metrics scanner_metrics.jsonl --days 30`
+  - Options: `--tz` (hours offset, default 0) and `--csv` for CSV output.
+- Notes:
+  - Aggregates only `kind=trade_close` events that include a numeric `pnl` field (typically from live TP/SL or manual closes on BloFin private WS).
+  - If you are testing without realized closes yet, it will print a friendly message and exit.
 
 Headless Deployment
 - To run 24/7 without your laptop, use Docker + Compose on a small VPS or systemd on a server.

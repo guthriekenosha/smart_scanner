@@ -163,6 +163,8 @@ class WSTickersUniverse:
             last = _last_price(t)
             if last < CONFIG.min_last_price:
                 continue
+            if CONFIG.max_last_price > 0 and last > CONFIG.max_last_price:
+                continue
             price_ok += 1
             qv = _qvol(t)
             if qv < CONFIG.min_quote_vol_usdt:
@@ -192,6 +194,8 @@ class WSTickersUniverse:
                 continue
             last = _last_price(t)
             if last < CONFIG.min_last_price:
+                continue
+            if CONFIG.max_last_price > 0 and last > CONFIG.max_last_price:
                 continue
             qv, key = _qvol_with_key(t)
             items.append((inst, qv, key, last))
@@ -364,6 +368,8 @@ class WSTickersUniverse:
             qv = _qvol(t)
             if last < CONFIG.min_last_price:
                 continue
+            if CONFIG.max_last_price > 0 and last > CONFIG.max_last_price:
+                continue
             if qv < CONFIG.min_quote_vol_usdt:
                 continue
             items.append((inst, qv))
@@ -379,6 +385,8 @@ class WSTickersUniverse:
                     continue
                 last = _last_price(t)
                 if last < CONFIG.min_last_price:
+                    continue
+                if CONFIG.max_last_price > 0 and last > CONFIG.max_last_price:
                     continue
                 price_rank.append((inst, last))
             price_rank.sort(key=lambda x: x[1], reverse=True)
