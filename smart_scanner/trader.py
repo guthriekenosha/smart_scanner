@@ -749,13 +749,16 @@ class AutoTrader:
             # Best-effort; continue even if venue rejects the leverage change
             pass
 
+        # In net mode, some venues reject an explicit positionSide field.
+        # Only include positionSide when in long_short mode; omit for net.
+        pos_side_arg = pos_side_entry if (str(CONFIG.trading_position_mode or "net").lower() == "long_short") else None
         resp = await client.place_order(
             s.symbol,
             s.side,
             "market",
             size_str,
             margin_mode=margin_mode,
-            position_side=pos_side_entry,
+            position_side=pos_side_arg,
         )
         emit_metric("order_api", {"symbol": s.symbol, "signal_id": s.id, "side": s.side, "resp": resp})
 
@@ -861,7 +864,7 @@ class AutoTrader:
                     "market",
                     retry_size,
                     margin_mode=margin_mode,
-                    position_side=pos_side_entry,
+                    position_side=pos_side_arg,
                 )
                 emit_metric("order_api", {"symbol": s.symbol, "signal_id": s.id, "side": s.side, "resp": resp2, "retry": 1})
                 is_err2, info2 = _resp_error(resp2)
