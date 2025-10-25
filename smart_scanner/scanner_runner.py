@@ -587,20 +587,25 @@ async def scan_once(client: BlofinClient | None = None) -> List[Signal]:
                     if on_cooldown(cd_key, CONFIG.cooldown_sec):
                         continue
                     # Optional qVol gate at signal time to avoid low-liquidity prints
+                    ticker = None
+                    last_price: float | None = None
                     try:
+                        ticker = _ws_uni.get_raw_ticker(sym)
+                        if ticker is None:
+                            ticker = _get_cached_ticker(sym)
                         if CONFIG.signal_min_qvol_usdt > 0:
-                            t = _ws_uni.get_raw_ticker(sym)
-                            if t is not None:
-                                qv, _ = _qvol_with_key(t)
+                            if ticker is not None:
+                                qv, _ = _qvol_with_key(ticker)
                                 if qv < CONFIG.signal_min_qvol_usdt:
                                     continue
                         # Optional max price gate at signal time
                         if CONFIG.max_last_price > 0:
-                            t = _ws_uni.get_raw_ticker(sym)
-                            if t is not None:
-                                last_px = _get_last_price(t)
-                                if last_px > CONFIG.max_last_price:
+                            if ticker is not None:
+                                last_price = _get_last_price(ticker)
+                                if last_price > CONFIG.max_last_price:
                                     continue
+                        if last_price is None and ticker is not None:
+                            last_price = _get_last_price(ticker)
                     except Exception:
                         pass
                     # orderflow gating (symbol-level)
@@ -657,6 +662,8 @@ async def scan_once(client: BlofinClient | None = None) -> List[Signal]:
                         extra_features=extra_feats,
                     )
                     for s in sigs:
+                        if last_price and last_price > 0:
+                            s.price = float(last_price)
                         diag_total_candidates += 1
                         if dedupe(s, CONFIG.dedupe_ttl_sec):
                             continue
@@ -797,13 +804,19 @@ async def ws_event_loop():
             if on_cooldown(cd_key, CONFIG.cooldown_sec):
                 continue
             # Optional qVol gate at signal time
+            ticker = None
+            last_price: float | None = None
             try:
+                ticker = _ws_uni.get_raw_ticker(sym)
+                if ticker is None:
+                    ticker = _get_cached_ticker(sym)
                 if CONFIG.signal_min_qvol_usdt > 0:
-                    t = _ws_uni.get_raw_ticker(sym)
-                    if t is not None:
-                        qv, _ = _qvol_with_key(t)
+                    if ticker is not None:
+                        qv, _ = _qvol_with_key(ticker)
                         if qv < CONFIG.signal_min_qvol_usdt:
                             continue
+                if ticker is not None:
+                    last_price = _get_last_price(ticker)
             except Exception:
                 pass
             btc_15m_close = await _btc_cache.get(client)
@@ -855,6 +868,8 @@ async def ws_event_loop():
                 sym, tf, rows, btc_15m_close=btc_15m_close, extra_features=extra_feats
             )
             for s in sigs:
+                if last_price and last_price > 0:
+                    s.price = float(last_price)
                 if dedupe(s, CONFIG.dedupe_ttl_sec):
                     continue
                 touch_cooldown(cd_key)

@@ -78,6 +78,22 @@ def _get_list(env: str, default: List[str]) -> Tuple[str, ...]:
     return tuple(s.strip() for s in raw.split(",") if s.strip())
 
 
+def _resolve_data_path(env_key: str, filename: str) -> str:
+    """
+    Prefer explicit env override. Otherwise fall back to /data/<file> when available,
+    else use LOCAL_ARTIFACTS_DIR/<file> (default artifacts/) for local runs.
+    """
+    override = os.getenv(env_key)
+    if override:
+        return override
+    if os.path.isabs(filename):
+        return filename
+    if os.path.exists("/data") and os.access("/data", os.W_OK | os.X_OK):
+        return os.path.join("/data", filename.lstrip("/"))
+    local_root = os.getenv("LOCAL_ARTIFACTS_DIR", "artifacts")
+    return os.path.join(local_root, filename)
+
+
 @dataclass(frozen=True)
 class Config:
     # API
@@ -171,7 +187,7 @@ class Config:
     ws_backfil_bars: int = int(os.getenv("WS_BACKFIL_BARS", "240"))
 
     # Universe persistence & fallback
-    universe_cache_path: str = os.getenv("UNIVERSE_CACHE_PATH", ".universe_cache.json")
+    universe_cache_path: str = _resolve_data_path("UNIVERSE_CACHE_PATH", ".universe_cache.json")
     universe_ttl_sec: int = int(os.getenv("UNIVERSE_TTL_SEC", "900"))  # 15 minutes
     fallback_universe: Tuple[str, ...] = tuple(
         _get_list(
@@ -246,11 +262,11 @@ class Config:
     min_components: int = int(os.getenv("MIN_COMPONENTS", "2"))
 
     # Contextual bandit persistence
-    bandit_state_path: str = os.getenv("BANDIT_STATE_PATH", "bandit_state.json")
+    bandit_state_path: str = _resolve_data_path("BANDIT_STATE_PATH", "bandit_state.json")
 
     # Metrics
     metrics_enabled: int = int(os.getenv("METRICS_ENABLED", "1"))
-    metrics_path: str = os.getenv("METRICS_PATH", "scanner_metrics.jsonl")
+    metrics_path: str = _resolve_data_path("METRICS_PATH", "scanner_metrics.jsonl")
     print_of_debug: int = int(os.getenv("PRINT_OF_DEBUG", "0"))
 
     # Orderflow (WS books + trades)
@@ -265,7 +281,7 @@ class Config:
     of_ready_max_age_sec: int = int(os.getenv("OF_READY_MAX_AGE_SEC", "20"))
 
     # Probability calibration
-    calibration_path: str = os.getenv("CALIBRATION_PATH", "calibration.json")
+    calibration_path: str = _resolve_data_path("CALIBRATION_PATH", "calibration.json")
 
     # Blue-chip only mode
     bluechip_only: int = int(os.getenv("BLUECHIP_ONLY", "0"))
