@@ -22,6 +22,7 @@ class Signal:
     confirmation: Literal["anticipation", "confirmed"] = "confirmed"
     tags: List[str] = field(default_factory=list)
     level: float | None = None
+    entry_hint: Dict[str, Any] | None = None
     created_ts: int = field(default_factory=lambda: int(time.time()))
     meta: Dict[str, Any] = field(default_factory=dict)
 

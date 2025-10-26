@@ -33,6 +33,30 @@ class PrettyPrinter:
         else:
             self._console.print(s)
 
+    def _entry_summary(self, s: Any) -> str:
+        hint = getattr(s, "entry_hint", None)
+        if not isinstance(hint, dict):
+            return ""
+        mode = str(hint.get("mode", "market"))
+        decision = str(hint.get("decision", mode))
+        price = hint.get("price")
+        price_str = ""
+        if isinstance(price, (int, float)):
+            try:
+                price_str = f" @{float(price):.6g}"
+            except Exception:
+                price_str = ""
+        parts = [f"{mode}{price_str}".strip()]
+        if decision == "wait_for_retest":
+            parts.append("retest")
+        elif decision and decision != mode:
+            parts.append(decision)
+        reason = hint.get("reason")
+        if isinstance(reason, str) and reason and len(reason) <= 40:
+            parts.append("·")
+            parts.append(reason)
+        return " ".join(part for part in parts if part)
+
     # -------- High-level helpers --------
     def config_table(self, cfg: Any) -> None:
         if not self.enabled or self._console is None:
@@ -81,8 +105,10 @@ class PrettyPrinter:
             for s in signals:
                 side_tag = "🟢" if getattr(s, "side", "buy") == "buy" else "🔴"
                 comps = ", ".join(getattr(s, "components", []) or [])
+                entry = self._entry_summary(s)
+                entry_txt = f" | entry {entry}" if entry else ""
                 print(
-                    f"[{side_tag}] {s.symbol} {s.timeframe} | Score {s.score:.2f} | P {getattr(s,'prob',0.0)*100:.1f}% | EV {getattr(s,'ev',0.0):.2f} | {comps} | price {s.price:.6g}"
+                    f"[{side_tag}] {s.symbol} {s.timeframe} | Score {s.score:.2f} | P {getattr(s,'prob',0.0)*100:.1f}% | EV {getattr(s,'ev',0.0):.2f} | {comps} | price {s.price:.6g}{entry_txt}"
                 )
             return
         RTable = cast(Any, Table)
@@ -96,12 +122,14 @@ class PrettyPrinter:
         t.add_column("EV", justify="right")
         t.add_column("Price", justify="right")
         t.add_column("Components", overflow="fold")
+        t.add_column("Entry", style="dim", overflow="fold")
         for s in signals:
             side = getattr(s, "side", "buy")
             side_style = "green" if side == "buy" else "red"
             comps = ", ".join(getattr(s, "components", []) or [])
             prob = getattr(s, "prob", 0.0) * 100.0
             ev = getattr(s, "ev", 0.0)
+            entry = self._entry_summary(s)
             t.add_row(
                 str(getattr(s, "symbol", "?")),
                 str(getattr(s, "timeframe", "?")),
@@ -111,6 +139,7 @@ class PrettyPrinter:
                 f"{ev:.2f}",
                 f"{float(getattr(s, 'price', 0.0)):.6g}",
                 comps,
+                entry,
             )
         self._console.print(t)
 

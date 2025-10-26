@@ -56,6 +56,94 @@ def _prob_from_components(score: float, tags: List[str], n_comp: int, feats: Dic
     return max(0.05, min(0.90 if n_comp < 3 else 0.93, p))
 
 
+def _build_entry_hint(
+    side: str,
+    price: float,
+    level: float | None,
+    components: List[str],
+    tags: List[str],
+    feats: Dict[str, float] | None,
+    score: float,
+    prob: float,
+    timeframe: str,
+) -> Dict[str, Any]:
+    """
+    Prototype heuristics for suggesting an entry plan.
+    Returns a lightweight dict describing the preferred approach.
+    """
+    def _confidence(s: float, p: float) -> str:
+        if s >= 6.0 or p >= 0.82:
+            return "high"
+        if s >= 5.0 or p >= 0.7:
+            return "medium"
+        return "base"
+
+    def _atr_buffer_bps(feats_map: Dict[str, float] | None) -> float:
+        if not feats_map:
+            return 6.0
+        try:
+            atr_pct = float(feats_map.get("atr14_pct", 0.0))
+        except (TypeError, ValueError):
+            atr_pct = 0.0
+        if atr_pct <= 0:
+            return 6.0
+        atr_bps = atr_pct * 10000.0
+        return float(max(3.0, min(18.0, atr_bps / 4.0)))
+
+    buf_bps = _atr_buffer_bps(feats)
+    price = float(price)
+    hint: Dict[str, Any] = {
+        "decision": "enter_now",
+        "mode": "market",
+        "price": price,
+        "reason": "momentum continuation" if "momentum" in components or "momentum" in tags else "clean setup",
+    }
+
+    is_breakout = "breakout" in components
+    is_breakdown = "breakdown" in components
+    confidence = _confidence(score, prob)
+
+    if level is not None and ((side == "buy" and is_breakout) or (side == "sell" and is_breakdown)):
+        base = max(abs(level), 1e-9)
+        if side == "buy" and price > level:
+            gap_bps = (price - level) / base * 10000.0
+            if gap_bps > buf_bps * 0.75:
+                limit_price = max(level * (1.0 + buf_bps / 10000.0), 0.0)
+                hint = {
+                    "decision": "wait_for_retest",
+                    "mode": "limit",
+                    "price": limit_price,
+                    "buffer_bps": buf_bps,
+                    "gap_bps": gap_bps,
+                    "reason": "wait for breakout retest",
+                }
+        elif side == "sell" and price < level:
+            gap_bps = (level - price) / base * 10000.0
+            if gap_bps > buf_bps * 0.75:
+                limit_price = level * (1.0 - buf_bps / 10000.0)
+                hint = {
+                    "decision": "wait_for_retest",
+                    "mode": "limit",
+                    "price": limit_price,
+                    "buffer_bps": buf_bps,
+                    "gap_bps": gap_bps,
+                    "reason": "wait for breakdown retest",
+                }
+
+    if hint["decision"] == "enter_now":
+        if "ema21_touch" in tags or "pullback" in components or "retrace" in components:
+            hint["reason"] = "pullback filled into support/resistance"
+        elif "st_flip" in tags or "st_flip_down" in tags:
+            hint["reason"] = "trend flip confirmation"
+
+    hint["side"] = side
+    hint["timeframe"] = timeframe
+    hint["confidence"] = confidence
+    hint["score"] = float(score)
+    hint["prob"] = float(prob)
+    return hint
+
+
 def evaluate_symbol_timeframe(
     symbol: str,
     timeframe: str,
@@ -153,6 +241,17 @@ def evaluate_symbol_timeframe(
         side = "buy" if side_votes["buy"] >= side_votes.get("sell", 0) else "sell"
     prob = _prob_from_components(score, tags, n_comp=len(components), feats=feats)
     ev = (prob * 1.0) - ((1 - prob) * 0.5)  # simplistic EV estimate; tune later
+    entry_hint = _build_entry_hint(
+        side=side,
+        price=float(c[-1]),
+        level=level,
+        components=components,
+        tags=tags,
+        feats=feats,
+        score=score,
+        prob=prob,
+        timeframe=timeframe,
+    )
 
     sig = Signal(
         symbol=symbol,
@@ -168,6 +267,7 @@ def evaluate_symbol_timeframe(
         ),
         tags=list(dict.fromkeys(tags)),  # unique
         level=level,
+        entry_hint=entry_hint,
         meta={
             "strat_scores": strat_scores,
             "weights": weights,
